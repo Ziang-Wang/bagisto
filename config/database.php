@@ -62,6 +62,30 @@ return [
             ]) : [],
         ],
 
+        /*
+        |----------------------------------------------------------------------
+        | WooCommerce migration source (read-only)
+        |----------------------------------------------------------------------
+        | Dedicated connection used ONLY by the WooImporter package to read the
+        | legacy WooCommerce data restored from the old server. Safe to leave
+        | as-is when you are not migrating.
+        */
+        'woocommerce' => [
+            'driver' => 'mysql',
+            'host' => env('WOO_DB_HOST', '127.0.0.1'),
+            'port' => env('WOO_DB_PORT', '3306'),
+            'database' => env('WOO_DB_DATABASE', 'woocommerce_import'),
+            'username' => env('WOO_DB_USERNAME', 'root'),
+            'password' => env('WOO_DB_PASSWORD', ''),
+            'unix_socket' => env('WOO_DB_SOCKET', ''),
+            'charset' => env('WOO_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('WOO_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

@@ -42,3 +42,14 @@ skills-lock.json
 /vendor
 yarn.lock
 yarn-error.log
+
+# ---------------------------------------------------------------------------
+# WooCommerce → Bagisto migration artifacts (local only — never commit these)
+# ---------------------------------------------------------------------------
+# Copied legacy wp-content/uploads source images (hundreds of MB)
+/storage/woo-uploads
+# Raw database dumps exported from the legacy store
+/woo_dump.sql.gz
+*.sql.gz
+# Bagisto on-the-fly resized image cache (regenerated on demand)
+/public/cache

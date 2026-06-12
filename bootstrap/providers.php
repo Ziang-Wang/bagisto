@@ -42,6 +42,7 @@ use Webkul\Stripe\Providers\StripeServiceProvider;
 use Webkul\Tax\Providers\TaxServiceProvider;
 use Webkul\Theme\Providers\ThemeServiceProvider;
 use Webkul\User\Providers\UserServiceProvider;
+use Webkul\WooImporter\Providers\WooImporterServiceProvider;
 
 return [
     /**
@@ -93,4 +94,5 @@ return [
     TaxServiceProvider::class,
     ThemeServiceProvider::class,
     UserServiceProvider::class,
+    WooImporterServiceProvider::class,
 ];
