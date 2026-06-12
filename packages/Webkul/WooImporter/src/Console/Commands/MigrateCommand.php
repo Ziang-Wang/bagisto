@@ -11,6 +11,7 @@ use Webkul\WooImporter\Migrators\OrderMigrator;
 use Webkul\WooImporter\Migrators\ProductMigrator;
 use Webkul\WooImporter\Migrators\ReviewMigrator;
 use Webkul\WooImporter\Migrators\SiteContentMigrator;
+use Webkul\WooImporter\Migrators\VideoMigrator;
 use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
 
@@ -28,6 +29,7 @@ class MigrateCommand extends Command
         {--with-orders : Also migrate historical orders (requires customers)}
         {--with-coupons : Also migrate coupons as cart rules}
         {--with-reviews : Also migrate product reviews}
+        {--with-videos : Also migrate product videos}
         {--with-content : Also replace demo storefront content (store name, CMS pages, home page, footer)}
         {--uploads= : Absolute path to the copied wp-content/uploads directory (overrides config)}
         {--strategy= : Variation mapping strategy: auto|configurable|flatten}
@@ -101,6 +103,12 @@ class MigrateCommand extends Command
             $this->newLine();
             $this->comment('[7] Reviews');
             app(ReviewMigrator::class)->migrate($this);
+        }
+
+        if ($all || $this->option('with-videos')) {
+            $this->newLine();
+            $this->comment('[8] Product videos');
+            app(VideoMigrator::class)->migrate($this);
         }
 
         if ($all || $this->option('with-content')) {
