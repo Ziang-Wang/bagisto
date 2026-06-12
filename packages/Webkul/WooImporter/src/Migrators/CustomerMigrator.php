@@ -10,12 +10,13 @@ use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
 
 /**
- * Best-effort migration of customers from the legacy store.
+ * Migrates customers from the legacy store.
  *
- * The source store takes guest orders (no registered accounts), so this builds
- * Bagisto customer records from the unique billing e-mails found on the orders.
- * Each customer gets a random password and is left unverified; the owner can
- * trigger a password reset later. This step is entirely optional.
+ * Pulls every registered customer from WooCommerce's `wc_customer_lookup`
+ * table and additionally back-fills any billing e-mail found on orders that
+ * has no matching customer record (guest checkouts). Each migrated customer
+ * gets a random password and is left unverified so the owner can trigger a
+ * password reset later.
  */
 class CustomerMigrator
 {
@@ -33,7 +34,7 @@ class CustomerMigrator
         $contacts = $this->collectContacts();
 
         if (empty($contacts)) {
-            $console->warn('  No customer e-mails found on the legacy orders.');
+            $console->warn('  No customers found in the legacy store.');
 
             return;
         }
@@ -44,7 +45,11 @@ class CustomerMigrator
         $created = $skipped = 0;
 
         foreach ($contacts as $email => $contact) {
-            if ($this->customerRepository->findOneByField('email', $email)) {
+            if ($existing = $this->customerRepository->findOneByField('email', $email)) {
+                // Remember the mapping even when the record already exists so
+                // the order migrator can link to it.
+                $this->mapping->put(Mapping::ENTITY_CUSTOMER, $email, $existing->id);
+
                 $skipped++;
 
                 continue;
@@ -72,7 +77,8 @@ class CustomerMigrator
     }
 
     /**
-     * Build [email => [first_name, last_name, phone]] from the HPOS order tables.
+     * Build [email => [first_name, last_name, phone]] from the registered
+     * customers table, then back-fill from order billing details.
      *
      * @return array<string, array<string, string|null>>
      */
@@ -80,16 +86,52 @@ class CustomerMigrator
     {
         $contacts = [];
 
+        // 1) Registered customers from WooCommerce's analytics lookup table.
+        try {
+            $rows = $this->woo->table('wc_customer_lookup')
+                ->whereNotNull('email')
+                ->where('email', '<>', '')
+                ->get(['first_name', 'last_name', 'email']);
+
+            foreach ($rows as $row) {
+                $email = strtolower(trim((string) $row->email));
+
+                if ($email === '' || isset($contacts[$email])) {
+                    continue;
+                }
+
+                $contacts[$email] = [
+                    'first_name' => (string) $row->first_name,
+                    'last_name' => (string) $row->last_name,
+                    'phone' => null,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Lookup table unavailable — fall back to order e-mails only.
+        }
+
+        // 2) Back-fill from order billing e-mails (covers guest checkouts).
+        $this->mergeOrderContacts($contacts);
+
+        return $contacts;
+    }
+
+    /**
+     * Merge billing contacts taken from the HPOS order tables into $contacts.
+     *
+     * @param  array<string, array<string, string|null>>  $contacts
+     */
+    protected function mergeOrderContacts(array &$contacts): void
+    {
         try {
             $emails = $this->woo->table('wc_orders')
                 ->whereNotNull('billing_email')
                 ->where('billing_email', '<>', '')
                 ->pluck('billing_email', 'id');
         } catch (\Throwable $e) {
-            return [];
+            return;
         }
 
-        // Try to enrich with billing names from the HPOS addresses table.
         $addresses = [];
 
         try {
@@ -117,7 +159,5 @@ class CustomerMigrator
                 'phone' => $address->phone ?? null,
             ];
         }
-
-        return $contacts;
     }
 }

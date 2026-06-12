@@ -25,6 +25,12 @@ class Mapping
 
     const ENTITY_CMS_PAGE = 'cms_page';
 
+    const ENTITY_ORDER = 'order';
+
+    const ENTITY_COUPON = 'coupon';
+
+    const ENTITY_REVIEW = 'review';
+
     /**
      * Remember a mapping (insert or update).
      */

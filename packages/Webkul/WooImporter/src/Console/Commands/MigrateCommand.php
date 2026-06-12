@@ -5,8 +5,11 @@ namespace Webkul\WooImporter\Console\Commands;
 use Illuminate\Console\Command;
 use Webkul\WooImporter\Migrators\AttributeMigrator;
 use Webkul\WooImporter\Migrators\CategoryMigrator;
+use Webkul\WooImporter\Migrators\CouponMigrator;
 use Webkul\WooImporter\Migrators\CustomerMigrator;
+use Webkul\WooImporter\Migrators\OrderMigrator;
 use Webkul\WooImporter\Migrators\ProductMigrator;
+use Webkul\WooImporter\Migrators\ReviewMigrator;
 use Webkul\WooImporter\Migrators\SiteContentMigrator;
 use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
@@ -20,13 +23,17 @@ class MigrateCommand extends Command
     protected $signature = 'woocommerce:migrate
         {--fresh : Wipe previous import mappings and re-import everything}
         {--skip-images : Import products without downloading/encoding images (much faster)}
-        {--with-customers : Also create customers from the legacy order e-mails}
+        {--all : Migrate EVERYTHING (customers, orders, coupons, reviews and storefront content)}
+        {--with-customers : Also migrate customers (registered + guest order e-mails)}
+        {--with-orders : Also migrate historical orders (requires customers)}
+        {--with-coupons : Also migrate coupons as cart rules}
+        {--with-reviews : Also migrate product reviews}
         {--with-content : Also replace demo storefront content (store name, CMS pages, home page, footer)}
         {--uploads= : Absolute path to the copied wp-content/uploads directory (overrides config)}
         {--strategy= : Variation mapping strategy: auto|configurable|flatten}
         {--limit= : Limit the number of products (useful for a trial run)}';
 
-    protected $description = 'Migrate catalogue data (categories, attributes, products, images) from a WooCommerce database into Bagisto';
+    protected $description = 'Migrate data (categories, attributes, products, images, customers, orders, coupons, reviews, content) from a WooCommerce database into Bagisto';
 
     public function handle(WooClient $woo, Mapping $mapping): int
     {
@@ -58,25 +65,45 @@ class MigrateCommand extends Command
 
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
 
+        $all = $this->option('all');
+
         $this->newLine();
-        $this->comment('[1/4] Categories');
+        $this->comment('[1] Categories');
         app(CategoryMigrator::class)->migrate($this);
 
         $this->newLine();
-        $this->comment('[2/4] Configurable attributes');
+        $this->comment('[2] Configurable attributes');
         app(AttributeMigrator::class)->migrate($this);
 
         $this->newLine();
-        $this->comment('[3/4] Products'.($limit ? " (limited to {$limit})" : ''));
+        $this->comment('[3] Products'.($limit ? " (limited to {$limit})" : ''));
         app(ProductMigrator::class)->migrate($this, $limit, ! $this->option('skip-images'));
 
-        if ($this->option('with-customers')) {
+        if ($all || $this->option('with-customers')) {
             $this->newLine();
-            $this->comment('[4/4] Customers');
+            $this->comment('[4] Customers');
             app(CustomerMigrator::class)->migrate($this);
         }
 
-        if ($this->option('with-content')) {
+        if ($all || $this->option('with-orders')) {
+            $this->newLine();
+            $this->comment('[5] Orders');
+            app(OrderMigrator::class)->migrate($this);
+        }
+
+        if ($all || $this->option('with-coupons')) {
+            $this->newLine();
+            $this->comment('[6] Coupons');
+            app(CouponMigrator::class)->migrate($this);
+        }
+
+        if ($all || $this->option('with-reviews')) {
+            $this->newLine();
+            $this->comment('[7] Reviews');
+            app(ReviewMigrator::class)->migrate($this);
+        }
+
+        if ($all || $this->option('with-content')) {
             $this->newLine();
             $this->comment('[+] Storefront content (store name, CMS pages, home page, footer)');
             app(SiteContentMigrator::class)->migrate($this);
