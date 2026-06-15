@@ -58,6 +58,32 @@ return [
     'variation_strategy' => env('WOO_VARIATION_STRATEGY', 'auto'),
 
     /**
+     * Storefront branding. The header logo is rendered as a lightweight text
+     * SVG (so there is no binary asset to ship) and the home-page hero reuses
+     * the same wordmark. `logo_segments` splits the wordmark so a part of it
+     * can be highlighted in a different colour. Leave `wordmark` empty to fall
+     * back to the WooCommerce `blogname`.
+     */
+    'branding' => [
+        'wordmark' => env('WOO_BRAND_WORDMARK', 'URmotorparts'),
+
+        // Coloured pieces that compose the logo, in order. Their concatenated
+        // text should equal `wordmark`; `color` is any CSS colour.
+        'logo_segments' => [
+            ['text' => 'UR', 'color' => '#0f172a'],
+            ['text' => 'motor', 'color' => '#f59e0b'],
+            ['text' => 'parts', 'color' => '#0f172a'],
+        ],
+
+        // Home-page hero banner. Path is RELATIVE to the WooCommerce uploads
+        // directory (`uploads_path`), i.e. the same wp-content/uploads-relative
+        // form WordPress stores. When the file exists the hero becomes that
+        // image (linked to the storefront); otherwise it falls back to the
+        // text hero (wordmark + tagline + "Shop now"). Leave empty to disable.
+        'hero_banner' => env('WOO_HERO_BANNER', '2026/03/motorcycle-accessories-lower-triple-tree-clamp-fork-slider-crash-protector-speedometer-housing-case-brake-cluth-line-and-more.-Buy-from-URMOTORPARTS.jpg'),
+    ],
+
+    /**
      * Storefront content migration (store name, CMS pages, home page, footer).
      * `cms_pages` lists the legacy WordPress page slugs to import as Bagisto
      * CMS pages, replacing the demo pages seeded by the installer.

@@ -5,6 +5,7 @@ namespace Webkul\WooImporter\Migrators;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
 
@@ -39,6 +40,7 @@ class SiteContentMigrator
     public function migrate(Command $console): void
     {
         $this->migrateStoreIdentity($console);
+        $this->migrateBranding($console);
         $this->migrateCmsPages($console);
         $this->normalizeCategoryTree($console);
         $this->decorateCategories($console);
@@ -69,6 +71,46 @@ class SiteContentMigrator
         }
 
         $console->info("  Store identity set to: {$name}");
+    }
+
+    /**
+     * Generate the storefront logo as a small text SVG and point the channel
+     * at it. Done in code (rather than shipping a binary asset that would live
+     * in gitignored storage) so a from-scratch deploy reproduces the exact
+     * same branding. Idempotent: it overwrites the file and column each run.
+     */
+    protected function migrateBranding(Command $console): void
+    {
+        $segments = array_values(array_filter(
+            (array) config('woo-importer.branding.logo_segments', []),
+            fn ($segment) => is_array($segment) && isset($segment['text'])
+        ));
+
+        if (empty($segments)) {
+            return;
+        }
+
+        $wordmark = $this->brandName();
+
+        $tspans = '';
+
+        foreach ($segments as $segment) {
+            $tspans .= '<tspan fill="'.e($segment['color'] ?? '#0f172a').'">'.e($segment['text']).'</tspan>';
+        }
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 48" width="280" height="48" role="img" aria-label="'.e($wordmark).'">'
+            .'<text x="0" y="35" font-family="\'Poppins\',\'Segoe UI\',Arial,Helvetica,sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5">'
+            .$tspans
+            .'</text>'
+            .'</svg>';
+
+        $path = 'channel/'.$this->channelId.'/logo.svg';
+
+        Storage::disk('public')->put($path, $svg);
+
+        DB::table('channels')->where('id', $this->channelId)->update(['logo' => $path]);
+
+        $console->info("  Storefront logo set to: {$wordmark}");
     }
 
     /**
@@ -249,7 +291,7 @@ class SiteContentMigrator
         $locales = $this->channelLocales();
         $sortOrder = 1;
 
-        // (1) Hero banner — text only (the legacy theme stores no usable banner image).
+        // (1) Hero banner — the configured banner image, or a text hero fallback.
         $this->addCustomization('static_content', 'Hero Banner', $sortOrder++, $locales, fn () => $this->heroOptions());
 
         // (2) Shop-by-category carousel (uses the thumbnails added above).
@@ -309,18 +351,82 @@ class SiteContentMigrator
     }
 
     /**
-     * Text hero options (store name + tagline + call-to-action).
+     * Home-page hero. Uses the configured banner image when it is available
+     * (a clean, full-width clickable banner), otherwise falls back to the
+     * text hero (wordmark + tagline + "Shop now").
      *
      * @return array<string, string>
      */
     protected function heroOptions(): array
     {
-        $name = $this->storeName();
-        $tagline = trim((string) $this->woo->option('blogdescription', '')) ?: 'Quality parts & accessories, shipped fast.';
-
         $cta = ($top = $this->topCategoriesByProductCount(1)->first())
             ? '/'.$this->categorySlug((int) $top->id)
             : '/';
+
+        if ($banner = $this->heroBanner()) {
+            return $this->heroImageOptions($banner, $cta);
+        }
+
+        return $this->heroTextOptions($cta);
+    }
+
+    /**
+     * Copy the configured hero banner from the WooCommerce uploads directory
+     * into public storage and return its (public-disk relative) path. Returns
+     * null when no banner is configured or the source file is missing.
+     */
+    protected function heroBanner(): ?string
+    {
+        $relative = trim((string) config('woo-importer.branding.hero_banner', ''));
+
+        if ($relative === '') {
+            return null;
+        }
+
+        $absolute = rtrim((string) config('woo-importer.uploads_path'), '/').'/'.ltrim($relative, '/');
+
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION)) ?: 'jpg';
+        $target = 'theme/'.$this->channelId.'/hero-banner.'.$ext;
+
+        Storage::disk('public')->put($target, file_get_contents($absolute));
+
+        return $target;
+    }
+
+    /**
+     * Image hero: the whole banner is shown full-width and links to the shop.
+     * The banner already carries its own title/products, so no text overlay.
+     *
+     * @return array<string, string>
+     */
+    protected function heroImageOptions(string $bannerPath, string $cta): array
+    {
+        $url = Storage::disk('public')->url($bannerPath);
+        $alt = $this->brandName();
+
+        $html = '<a href="'.e($cta).'" class="um-hero" aria-label="'.e($alt).'">'
+            .'<img src="'.e($url).'" alt="'.e($alt).'" loading="eager">'
+            .'</a>';
+
+        $css = '.um-hero{display:block;max-width:1320px;margin:24px auto 0;border-radius:20px;overflow:hidden;line-height:0;}'
+            .'.um-hero img{display:block;width:100%;height:auto;}';
+
+        return ['html' => $html, 'css' => $css];
+    }
+
+    /**
+     * Text hero options (wordmark + tagline + call-to-action).
+     *
+     * @return array<string, string>
+     */
+    protected function heroTextOptions(string $cta): array
+    {
+        $name = $this->brandName();
+        $tagline = trim((string) $this->woo->option('blogdescription', '')) ?: 'Quality parts & accessories, shipped fast.';
 
         $html = '<div class="um-hero">'
             .'<div class="um-hero-inner">'
@@ -333,7 +439,7 @@ class SiteContentMigrator
         $css = '.um-hero{background:linear-gradient(120deg,#0f172a 0%,#1e293b 60%,#334155 100%);border-radius:20px;'
             .'margin:24px auto 0;padding:80px 24px;max-width:1320px;}'
             .'.um-hero-inner{max-width:640px;margin:0 auto;text-align:center;color:#fff;}'
-            .'.um-hero-inner h1{font-size:48px;font-weight:600;margin:0 0 12px;text-transform:capitalize;}'
+            .'.um-hero-inner h1{font-size:48px;font-weight:600;margin:0 0 12px;text-transform:none;}'
             .'.um-hero-inner p{font-size:18px;opacity:.85;margin:0 0 28px;}'
             .'@media (max-width:768px){.um-hero{padding:48px 16px;}.um-hero-inner h1{font-size:30px;}.um-hero-inner p{font-size:16px;}}';
 
@@ -349,10 +455,12 @@ class SiteContentMigrator
     {
         return [
             'services' => [
-                ['title' => 'Free Shipping', 'description' => 'Free delivery on qualifying orders', 'service_icon' => 'icon-truck'],
-                ['title' => 'Genuine Parts', 'description' => 'Quality-checked, authentic components', 'service_icon' => 'icon-product'],
-                ['title' => 'Secure Payment', 'description' => '100% secure and encrypted checkout', 'service_icon' => 'icon-dollar-sign'],
-                ['title' => '24/7 Support', 'description' => 'Dedicated help whenever you need it', 'service_icon' => 'icon-support'],
+                ['title' => 'Shipping', 'description' => 'Spend over $200 get free shipping', 'service_icon' => 'icon-truck'],
+                ['title' => 'Raw Materials', 'description' => 'Our products are made using the best available materials', 'service_icon' => 'icon-product'],
+                ['title' => 'Quality Control', 'description' => '100% inspection will be conducted before delivery', 'service_icon' => 'icon-tick'],
+                ['title' => 'Market', 'description' => 'USA, UK, Europe, North America, Australia, Japan, etc', 'service_icon' => 'icon-location'],
+                ['title' => '6 months Warranty', 'description' => 'We guarantee that all parts warranted if a problem is due to the quality issue of the product itself', 'service_icon' => 'icon-gdpr-safe'],
+                ['title' => 'Money Back Guarantee', 'description' => 'Money back if does not fit your bike', 'service_icon' => 'icon-dollar-sign'],
             ],
         ];
     }
@@ -584,5 +692,16 @@ class SiteContentMigrator
     protected function storeName(): string
     {
         return trim((string) $this->woo->option('blogname', '')) ?: config('app.name', 'Store');
+    }
+
+    /**
+     * The display brand/wordmark used for the logo and hero. Falls back to the
+     * WooCommerce store name when no branding wordmark is configured.
+     */
+    protected function brandName(): string
+    {
+        $wordmark = trim((string) config('woo-importer.branding.wordmark', ''));
+
+        return $wordmark !== '' ? $wordmark : $this->storeName();
     }
 }
