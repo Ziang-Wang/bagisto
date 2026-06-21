@@ -104,13 +104,21 @@ COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
 
 # ---------------------------------------------------------------------------
-# Clone Bagisto + Composer install
+# Copy THIS fork + Composer install
+#
+# Build context MUST be the repository root:
+#   docker build -f docker/production/Dockerfile -t <tag> .
+#
+# We copy the local fork (which includes the WooImporter package and all
+# storefront customizations) instead of cloning upstream bagisto/bagisto, so
+# the image is actually *this* store. `.dockerignore` (repo root) keeps vendor,
+# node_modules, the Woo dump/uploads and .env out of the build context.
 # ---------------------------------------------------------------------------
 WORKDIR /var/www/bagisto
 
-RUN git clone --depth 1 --branch ${BAGISTO_VERSION} \
-        https://github.com/bagisto/bagisto.git . \
-    && composer install \
+COPY . /var/www/bagisto
+
+RUN composer install \
         --no-dev \
         --no-interaction \
         --prefer-dist \
@@ -146,29 +154,29 @@ RUN cp .env.example .env \
 #
 # The MySQL data directory (/var/lib/mysql) is baked into this layer.
 # ---------------------------------------------------------------------------
-COPY mysql-init.sql /docker-entrypoint-initdb.d/init.sql
-COPY build-install.sh /tmp/build-install.sh
+COPY docker/production/mysql-init.sql /docker-entrypoint-initdb.d/init.sql
+COPY docker/production/build-install.sh /tmp/build-install.sh
 RUN chmod +x /tmp/build-install.sh && bash /tmp/build-install.sh && rm /tmp/build-install.sh
 
 
 # ---------------------------------------------------------------------------
 # PHP configuration
 # ---------------------------------------------------------------------------
-COPY php.ini /etc/php/${PHP_VERSION}/fpm/conf.d/99-production.ini
-COPY php-fpm.conf /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
+COPY docker/production/php.ini /etc/php/${PHP_VERSION}/fpm/conf.d/99-production.ini
+COPY docker/production/php-fpm.conf /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
 
 
 # ---------------------------------------------------------------------------
 # Nginx configuration
 # ---------------------------------------------------------------------------
 RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d/bagisto.conf
+COPY docker/production/nginx.conf /etc/nginx/conf.d/bagisto.conf
 
 
 # ---------------------------------------------------------------------------
 # Supervisor configuration
 # ---------------------------------------------------------------------------
-COPY supervisord.conf /etc/supervisor/conf.d/bagisto.conf
+COPY docker/production/supervisord.conf /etc/supervisor/conf.d/bagisto.conf
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +196,7 @@ RUN chown -R www-data:www-data /var/www/bagisto \
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/production/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 

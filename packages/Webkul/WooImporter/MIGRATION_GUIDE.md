@@ -1,141 +1,168 @@
 # WooCommerce → Bagisto 部署指南
 
-把 **urmotorparts**（WordPress + WooCommerce）的数据迁移到本仓库的 **Bagisto 2.4** 并部署。迁移逻辑封装在 `packages/Webkul/WooImporter` 包中：通过一个只读连接 `woocommerce` 读取旧库，使用 Bagisto 官方仓储（与后台创建商品完全相同的流程）写入新库。
+把 **urmotorparts**（WordPress + WooCommerce）的数据迁移到本仓库的 **Bagisto 2.4** 并部署。迁移逻辑封装在 `packages/Webkul/WooImporter` 包中：通过只读连接 `woocommerce` 读取旧库，使用 Bagisto 官方仓储（与后台创建商品完全相同的流程）写入新库。
 
-> ⚠️ **安全提醒**：⓪ 同步源数据时**交互输入**源库密码（不写入文件/历史）。所有源站操作均为**只读**（SSH / `mysqldump`，不停止/重启进程、不锁表）。源服务器 IP、SSH 与数据库密码请勿写进本仓库；建议在迁移完成后轮换这些凭据。
+> ⚠️ **安全提醒**：§1 同步源数据时**交互输入**源库密码（不写入文件/历史）。所有源站操作均为**只读**（SSH / `mysqldump`，不停止/重启进程、不锁表）。源服务器 IP、SSH 与数据库密码请勿写进本仓库；建议迁移完成后轮换这些凭据。
 
 ---
 
-## 1. 从零一键部署
+## 1. 准备 Woo 源数据（首次 / 换新机器时）
 
-> 一条龙：从源服务器全量同步资源（⓪）→ 起库恢复源数据 → 安装 Bagisto → 全量导入 → 启动。命令经过实测，跑完即得到完整站点（URmotorparts 品牌、图片 hero、6 项服务条、定制页脚，约 569 商品 / 16 订单 / 35 评论）。
->
-> **架构**：宿主机 `php artisan serve`（:8000）+ 一个 Docker MySQL 容器（`bagisto-mysql`），容器内含两个库——`bagisto`（目标）与 `woocommerce_import`（Woo 源）。
-
-**前置**：已安装 Docker、PHP 8.3（含 `gd`/`imagick`、`intl`、`mbstring`、`pdo_mysql`、`curl`、`zip`、`bcmath`）、Composer 2；能 SSH 到源服务器（若需 ⓪ 同步）。
-
-**`.env` 关键项**（本机默认密码均为 `bagisto`）：
-
-```dotenv
-APP_URL=http://localhost:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=bagisto
-DB_USERNAME=root
-DB_PASSWORD=bagisto
-
-# ---- WooCommerce 迁移源（只读）----
-WOO_DB_HOST=127.0.0.1
-WOO_DB_PORT=3306
-WOO_DB_DATABASE=woocommerce_import
-WOO_DB_USERNAME=root
-WOO_DB_PASSWORD=bagisto
-WOO_DB_PREFIX=wp_
-WOO_UPLOADS_PATH=/绝对路径/到/bagisto/storage/woo-uploads
-WOO_VARIATION_STRATEGY=auto
-WOO_DEFAULT_STOCK=1000
-```
-
-**部署命令**（在仓库根目录执行）：
+从源服务器把数据库与图片同步到本地（流式直传，**不在源服务器留临时文件**）。产物：仓库根目录的 `woo_dump.sql.gz` + `storage/woo-uploads/`。两种部署方式（生产容器 §2 / 本地开发 §3）都用这份数据。
 
 ```bash
-# ── ⓪ 全量从源服务器同步资源（首次/换新机器时执行；已有本地资源则跳过）──
 REMOTE=root@<源服务器IP>                                    # 源服务器（填你的 IP / 域名）
 REMOTE_WP=/usr/local/lighthouse/softwares/wordpress         # WordPress 根目录
 read -rsp 'WooCommerce 数据库密码: ' WOO_DB_PASS; echo       # 交互输入，不落盘、不进历史
 
-# 0a. 数据库：远程一致性快照流式落地为本地 woo_dump.sql.gz（只读、不锁表、不影响线上下单）
+# 1a. 数据库：远程一致性快照流式落地为本地 woo_dump.sql.gz（只读、不锁表、不影响线上）
 ssh "$REMOTE" "MYSQL_PWD='$WOO_DB_PASS' mysqldump --single-transaction --quick --no-tablespaces -u wordpress wordpress | gzip" > woo_dump.sql.gz
 
-# 0b. 图片：远程打包 wp-content/uploads，流式解压到 storage/woo-uploads（去掉顶层 uploads/，保留年月子目录）
+# 1b. 图片：远程打包 wp-content/uploads，流式解压到 storage/woo-uploads（去掉顶层 uploads/）
 mkdir -p storage/woo-uploads
 ssh "$REMOTE" "tar czf - -C $REMOTE_WP/wp-content uploads" | tar xzf - -C storage/woo-uploads --strip-components=1
 
-# 0c. 校验：dump 大小 + 图片年月目录
+# 1c. 校验
 ls -lh woo_dump.sql.gz && find storage/woo-uploads -maxdepth 1 -type d | sort
+```
 
-# ── (可选) 完全重置：删除旧 MySQL 容器 + 数据卷（会清空 bagisto 与 woocommerce_import 两个库）──
-docker stop bagisto-mysql && docker rm bagisto-mysql && docker volume rm bagisto-mysql-data
+> 已有本地 `woo_dump.sql.gz` + `storage/woo-uploads/` 时可跳过本节。
 
-# ① 起 MySQL 容器（数据持久化在命名卷 bagisto-mysql-data；仅监听本机 3306）
-docker run -d \
-  --name bagisto-mysql \
-  --restart unless-stopped \
-  -e MYSQL_ROOT_PASSWORD=bagisto \
-  -e MYSQL_DATABASE=bagisto \
-  -e MYSQL_ROOT_HOST=% \
-  -p 127.0.0.1:3306:3306 \
-  -v bagisto-mysql-data:/var/lib/mysql \
+---
+
+## 2. 生产部署（单容器镜像，从本 fork 构建）★ 推荐
+
+用 `docker/production/` 的单容器镜像：**Nginx + PHP-FPM + 内置 MySQL + Supervisor**，一个容器搞定，无需独立 MySQL。镜像**从本仓库 fork 构建**（已含 WooImporter 与全部定制），真实商品数据在首次部署时一次性导入。**全部命令实测通过。**
+
+> 镜像里不构建前端资源，依赖仓库内已提交的 `public/themes/*/build`（已跟踪）。在仓库根目录执行下列命令。
+
+### 2.1 构建镜像（构建上下文 = 仓库根）
+
+```bash
+docker build -f docker/production/Dockerfile -t urmotorparts:prod .
+```
+
+> 约 5–10 分钟（apt + 编译 imagick + composer + 构建期安装）。`.dockerignore` 已把 vendor / node_modules / .git / `storage/woo-uploads` / `woo_dump.sql.gz` / `.env` 排除在构建上下文外。
+
+### 2.2 首次部署：起容器 + 导入数据（一次性）
+
+```bash
+# ① 起容器：持久化卷(mysql/storage) + 只读挂载 Woo 图片(仅迁移用)
+docker run -d --name urmotorparts -p 80:80 \
+  -v urmotorparts-mysql:/var/lib/mysql \
+  -v urmotorparts-storage:/var/www/bagisto/storage \
+  -v "$PWD/storage/woo-uploads:/woo-uploads:ro" \
+  -e APP_URL=https://your-domain.com \
+  urmotorparts:prod
+
+# 等内置 MySQL 就绪（root 走 socket 免密）
+until docker exec urmotorparts mysqladmin ping -uroot --silent 2>/dev/null | grep -q alive; do sleep 2; done
+
+# ② 把 Woo 源库灌进内置 MySQL，并授权 bagisto 用户
+docker exec -i urmotorparts mysql -uroot <<'SQL'
+CREATE DATABASE IF NOT EXISTS woocommerce_import CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON woocommerce_import.* TO 'bagisto'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON woocommerce_import.* TO 'bagisto'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+zcat woo_dump.sql.gz | docker exec -i urmotorparts mysql -uroot woocommerce_import
+
+# ③ 配置 Woo 源连接（指向内置库），跑全量迁移（--uploads 指到挂载点）
+#    ⚠️ artisan 命令一律加 -u www-data：否则以 root 运行会在 storage 里写出 root 属主
+#    的缓存文件，导致之后 php-fpm(www-data) 渲染分类页时写缓存失败 → 500。
+docker exec -u www-data urmotorparts bash -lc 'grep -q "^WOO_DB_DATABASE=" .env || cat >> .env <<EOF
+WOO_DB_HOST=127.0.0.1
+WOO_DB_PORT=3306
+WOO_DB_DATABASE=woocommerce_import
+WOO_DB_USERNAME=bagisto
+WOO_DB_PASSWORD=bagisto
+WOO_DB_PREFIX=wp_
+EOF
+php artisan config:clear'
+
+docker exec -u www-data urmotorparts php artisan woocommerce:migrate --all --uploads=/woo-uploads
+docker exec -u www-data urmotorparts php artisan indexer:index --mode=full
+docker exec -u www-data urmotorparts php artisan optimize:clear
+
+# ④ (可选) 迁移完成，源库可删；数据已在 bagisto 库 + storage 卷
+# docker exec urmotorparts mysql -uroot -e "DROP DATABASE woocommerce_import;"
+```
+
+**访问**：前台 `https://your-domain.com/` ；后台 `/admin`（`admin@example.com` / `admin123`，登录后立即改密码）。
+
+### 2.3 日常运行 / 重启
+
+数据持久在 `urmotorparts-mysql` + `urmotorparts-storage` 两个命名卷里，迁移是一次性的。之后正常运行**不需要** woo-uploads 挂载，也不需要再迁移：
+
+```bash
+docker rm -f urmotorparts
+docker run -d --name urmotorparts -p 80:80 \
+  -v urmotorparts-mysql:/var/lib/mysql \
+  -v urmotorparts-storage:/var/www/bagisto/storage \
+  -e APP_URL=https://your-domain.com \
+  urmotorparts:prod
+```
+
+> - 容器自带 nginx + php-fpm + mysql + supervisor，无需独立 MySQL；`docker rm` 后数据仍在卷里。
+> - **HTTPS**：在容器前放一层反代/负载均衡做 TLS（或用云上 LB）；改后台路径用 `-e APP_ADMIN_URL=backend`。
+> - **外部 MySQL/RDS 模式**（`-e DB_HOST=...`）见 `docker/production/README.md` §11。
+
+---
+
+## 3. 本地开发（可选：宿主机 serve + Docker MySQL）
+
+快速迭代用，不走容器构建。需要 PHP 8.3 + Composer + 一个 MySQL。
+
+```bash
+# MySQL 容器（含 bagisto + 待恢复的 woocommerce_import 两库）
+docker run -d --name bagisto-mysql --restart unless-stopped \
+  -e MYSQL_ROOT_PASSWORD=bagisto -e MYSQL_DATABASE=bagisto -e MYSQL_ROOT_HOST=% \
+  -p 127.0.0.1:3306:3306 -v bagisto-mysql-data:/var/lib/mysql \
   mysql:8.0 --default-authentication-plugin=mysql_native_password
-
-# 等待就绪
 until docker exec bagisto-mysql mysqladmin ping -uroot -pbagisto --silent 2>/dev/null | grep -q alive; do sleep 1; done
 
-# ② 恢复 Woo 源库 woocommerce_import（导入器从这里读取旧数据）
-docker exec bagisto-mysql mysql -uroot -pbagisto \
-  -e "CREATE DATABASE IF NOT EXISTS woocommerce_import CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+# 恢复源库
+docker exec bagisto-mysql mysql -uroot -pbagisto -e "CREATE DATABASE IF NOT EXISTS woocommerce_import CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 zcat woo_dump.sql.gz | docker exec -i bagisto-mysql mysql -uroot -pbagisto woocommerce_import
 
-# ③ PHP 依赖（首次或依赖变动时）
+# .env 配好 DB_*（root/bagisto/bagisto）与 WOO_DB_*（woocommerce_import / wp_ 前缀）、
+# WOO_UPLOADS_PATH=<仓库>/storage/woo-uploads，然后：
 composer install
-
-# ④ 全新安装 Bagisto（非交互；自动建管理员 admin@example.com / admin123）
-php artisan bagisto:install --skip-env-check --skip-cloud-promotion --no-interaction
-
-# ⑤ 全量导入（--all = 分类/属性/商品+图片/客户/订单/优惠券/评论/视频/storefront 内容+品牌+hero banner）
+php artisan bagisto:install --skip-env-check --skip-cloud-promotion --no-interaction   # admin@example.com / admin123
 php artisan woocommerce:migrate --all
+php artisan indexer:index --mode=full && php artisan optimize:clear && php artisan responsecache:clear
+```
 
-# ⑥ 重建索引 + 清缓存（含整页响应缓存）
-php artisan indexer:index --mode=full
-php artisan optimize:clear
-php artisan responsecache:clear
+后台常驻可用 systemd 托管 `php artisan serve`（开机自启 + 崩溃重启）：
 
-# ⑦ 启动应用 —— 注册为 systemd 服务（后台运行 + 开机自启 + 崩溃自动重启）
-#    （首次需创建单元；换机时按目标机调整 User/Group/WorkingDirectory/ExecStart 中的 php 路径）
+```bash
 sudo tee /etc/systemd/system/bagisto.service >/dev/null <<'EOF'
 [Unit]
 Description=Bagisto storefront (php artisan serve)
 After=network.target docker.service
 Wants=docker.service
-
 [Service]
 Type=simple
 User=ziang
-Group=ziang
 WorkingDirectory=/home/ziang/projects/bagisto
 ExecStart=/usr/bin/php artisan serve --host=127.0.0.1 --port=8000
 Restart=always
 RestartSec=3
-
 [Install]
 WantedBy=multi-user.target
 EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now bagisto        # 开机自启 + 立即启动
-systemctl status bagisto --no-pager        # 查看状态
+sudo systemctl daemon-reload && sudo systemctl enable --now bagisto
 ```
 
-> **服务管理**：`sudo systemctl restart bagisto`（重启）、`stop`/`start`、`disable`（取消开机自启）；日志 `journalctl -u bagisto -f`。
-> **开机自启全链路**：MySQL 容器已带 `--restart unless-stopped`，开机由 Docker 守护自动拉起；`bagisto.service` 经 `enable` 后由 systemd 在开机时启动——两者都会在重启后自动恢复。
-> **注意**：`php artisan serve` 是开发服务器（单线程），仅适合本地/测试。正式生产用 `docker/production/` 的单容器镜像或 Nginx + PHP-FPM。
-
-**访问**：前台 http://localhost:8000/ ；后台 http://localhost:8000/admin （`admin@example.com` / `admin123`）。
-
-> - ⓪ 流式同步**不**在源服务器留临时文件；`woo_dump.sql.gz`（约 4.5 MB）落到仓库根目录，图片落到 `storage/woo-uploads/`（约 600 MB）。
-> - 换新机器只需带上**代码仓库**，资源由 ⓪ 现拉；或把已有的 `woo_dump.sql.gz` + `storage/woo-uploads/` 一并拷过去并跳过 ⓪。两种方式结果一致——品牌 logo、hero banner（`branding.hero_banner` 指向 uploads 内的相对路径）等都由导入器自动复现。
-> - 导入幂等；已迁移记录会跳过（依赖 `woo_import_maps` 映射表），可安全重跑。想重头再来加 `--fresh`。约 569 商品带图，导入耗时数分钟。
-> - **生产部署**（Nginx + PHP-FPM + 内置 MySQL 的单容器镜像）见 `docker/production/README.md`。
+> `php artisan serve` 是开发服务器（单线程），**仅限本地/测试**；生产用 §2 的容器。换机时按目标机调整 unit 里的 `User`/`WorkingDirectory`/`php` 路径。
 
 ---
 
-## 2. 命令参考
+## 4. 命令参考
 
 | 命令 | 作用 |
 |------|------|
-| `php artisan woocommerce:migrate` | 一键迁移。**默认只导**：分类 → 属性 → 商品（含图片）。通过 `--with-*` / `--all` 追加其余内容 |
+| `php artisan woocommerce:migrate` | 一键迁移。**默认只导**：分类 → 属性 → 商品（含图片）。其余靠 `--with-*` / `--all` 追加 |
 | `php artisan woocommerce:migrate --all` | 全量：上述全部 + 客户 + 订单 + 优惠券 + 评论 + **视频** + storefront 内容（品牌 / hero / 服务条 / 页脚 / CMS 页） |
 | `php artisan woocommerce:migrate:categories` | 仅分类 |
 | `php artisan woocommerce:migrate:attributes` | 仅可配置属性及选项 |
@@ -148,16 +175,16 @@ systemctl status bagisto --no-pager        # 查看状态
 `woocommerce:migrate` 的选项：
 
 ```
---all             迁移“所有东西”：客户、订单、优惠券、评论、视频、storefront 内容（打开下面全部 --with-*）
+--all             迁移“所有东西”：客户、订单、优惠券、评论、视频、storefront 内容
 --fresh           清空之前的迁移映射，重新导入
 --skip-images     不导入图片（快速试跑）
---with-customers  从订单邮箱创建客户（注册客户 + 访客下单邮箱）
+--with-customers  从订单邮箱创建客户
 --with-orders     迁移历史订单（依赖客户）
 --with-coupons    把优惠券迁移为购物车规则
 --with-reviews    迁移商品评论
 --with-videos     迁移商品视频
 --with-content    替换 demo storefront 内容（店名 / CMS 页 / 首页 / 页脚 / 品牌 / hero）
---uploads=PATH    指定本机 wp-content/uploads 的绝对路径（覆盖配置）
+--uploads=PATH    指定 wp-content/uploads 的绝对路径（覆盖配置；容器内迁移用它指到挂载点）
 --strategy=auto   变体映射策略：auto（默认）| configurable | flatten
 --limit=N         仅导入前 N 个商品（试跑用）
 ```
@@ -166,20 +193,21 @@ systemctl status bagisto --no-pager        # 查看状态
 
 ---
 
-## 3. 故障排查
+## 5. 故障排查
 
 | 现象 | 处理 |
 |------|------|
-| `WooCommerce database not reachable` | 检查 `.env` 的 `WOO_DB_*`，确认 `woocommerce_import` 已导入；`php artisan config:clear` |
-| 商品无图片 | 确认 `WOO_UPLOADS_PATH` 指向**含年月子目录**的 uploads 路径；重导图片需 `woocommerce:migrate:products --fresh` |
-| 前台改动/数据不生效 | `php artisan view:clear && php artisan responsecache:clear`（本项目启用了 Spatie 整页响应缓存） |
+| `WooCommerce database not reachable` | 检查 `WOO_DB_*`，确认 `woocommerce_import` 已导入；`php artisan config:clear` |
+| 商品无图片 | `WOO_UPLOADS_PATH`（或 `--uploads`）须指向**含年月子目录**的 uploads；重导图片加 `--fresh` |
+| 前台改动/数据不生效 | `php artisan view:clear && php artisan responsecache:clear`（启用了 Spatie 整页响应缓存） |
 | 前台看不到商品 | `php artisan indexer:index --mode=full && php artisan optimize:clear` |
 | 想重头再来 | `php artisan woocommerce:migrate --fresh`（清空映射并重建） |
-| 图片转码报错 | 确认 PHP 已装 `gd` 或 `imagick` 扩展 |
+| 容器内 `mysql -uroot` 连不上 | 内置库 root 走 socket 免密；外部库模式见 README §11 |
+| 分类页 500、日志报 `cache/data/...: Failed to open stream`（Permission denied） | storage 里有 root 属主缓存文件（曾以 root 跑过 `docker exec ... artisan`）。修复：`docker exec <c> chown -R www-data:www-data storage bootstrap/cache` 再 `docker restart <c>`（entrypoint 已会在每次启动自愈）。根治：容器内 artisan 一律加 `-u www-data` |
 
 ---
 
-## 4. 迁移后手动配置（上线前）
+## 6. 迁移后手动配置（上线前）
 
 迁移工具只负责**目录与 storefront 内容**。以下站点运营配置需在 Bagisto 后台/`.env` 重新设置：
 
@@ -187,5 +215,5 @@ systemctl status bagisto --no-pager        # 查看状态
 - **物流方式**：后台 → 配置 → 销售 → 配送方式（免运费 / 统一运费 / 按重量）。
 - **税率**：后台 → 配置 → 销售 → 税。
 - **邮件 / SMTP**：在 `.env` 配置 `MAIL_*`。
-- **SEO 301 重定向**：迁移已尽量沿用商品/分类 slug，建议在 Nginx 层为旧链接配置 301。
+- **SEO 301 重定向**：迁移已尽量沿用商品/分类 slug，建议在反代层为旧链接配置 301。
 - **域名 / DNS / HTTPS**：测试无误后切换解析并配置证书。

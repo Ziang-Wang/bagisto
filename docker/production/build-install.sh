@@ -45,8 +45,9 @@ php artisan key:generate --force --no-interaction
 echo "[build-install] Running Bagisto installation..."
 php artisan bagisto:install --skip-env-check --skip-admin-creation --skip-github-star --no-interaction
 
-echo "[build-install] Running database seeders..."
-php artisan db:seed --class="Webkul\\Installer\\Database\\Seeders\\ProductTableSeeder"
+# NOTE: the demo ProductTableSeeder is intentionally NOT run — this fork's real
+# catalogue is imported at runtime via `php artisan woocommerce:migrate --all`,
+# so the baked image ships an empty catalogue instead of sample products.
 
 echo "[build-install] Running indexers..."
 php artisan index:index --mode=full

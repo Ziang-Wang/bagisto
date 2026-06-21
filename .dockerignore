@@ -1,0 +1,43 @@
+# Build context excludes for docker/production/Dockerfile (context = repo root).
+# Keep this lean: the production image runs `composer install` itself and
+# mounts the Woo source data at runtime, so none of the below belong in it.
+
+# --- VCS / IDE / OS ---
+.git
+.github
+.gitlab-ci.yml
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Dependencies (reinstalled inside the image) ---
+vendor
+node_modules
+**/node_modules
+
+# --- Local env / secrets (image creates its own .env from .env.example) ---
+.env
+.env.backup
+.env.bak
+
+# --- WooCommerce migration source data (mounted at runtime, NOT baked in) ---
+storage/woo-uploads
+woo_dump.sql.gz
+*.sql.gz
+
+# --- Transient runtime state ---
+storage/logs/*.log
+storage/framework/cache/data
+storage/framework/sessions/*
+storage/framework/views/*.php
+bootstrap/cache/*.php
+
+# --- Locally-generated media (re-created by the runtime migration) ---
+storage/app/public/product
+storage/app/public/cache
+
+# --- Compose (the prod image is single-container) ---
+docker-compose*.yml

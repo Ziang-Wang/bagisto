@@ -76,6 +76,15 @@ if ! use_internal_mysql; then
     done
 fi
 
+# ==========================================================================
+# Ensure the writable runtime dirs exist and are owned by www-data.
+# Guards against root-owned files left in a mounted storage volume (e.g. after
+# running `docker exec ... php artisan ...` as root), which would otherwise make
+# php-fpm (www-data) fail to write the file cache / sessions / compiled views.
+# ==========================================================================
+mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
+chown -R www-data:www-data storage/framework storage/logs bootstrap/cache
+
 log "Starting services via Supervisor..."
 
 # ==========================================================================
