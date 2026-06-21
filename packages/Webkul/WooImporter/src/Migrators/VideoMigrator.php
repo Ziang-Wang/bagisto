@@ -88,7 +88,7 @@ class VideoMigrator
             // Skip if this product already has this video (idempotent re-runs).
             $extension = pathinfo($absolute, PATHINFO_EXTENSION) ?: 'mp4';
 
-            $alreadyHasVideo = DB::table('product_images')
+            $alreadyHasVideo = DB::table('product_videos')
                 ->where('product_id', $productId)
                 ->where('type', 'videos')
                 ->exists();
@@ -105,11 +105,15 @@ class VideoMigrator
 
             Storage::put($targetName, file_get_contents($absolute));
 
-            $position = (int) DB::table('product_images')
+            $position = (int) DB::table('product_videos')
                 ->where('product_id', $productId)
                 ->max('position');
 
-            DB::table('product_images')->insert([
+            // Videos live in `product_videos` (NOT `product_images`); the storefront
+            // gallery reads them via ProductVideo::getVideos($product->videos) and
+            // renders a <video>. Putting them in product_images makes the gallery
+            // treat them as broken <img>.
+            DB::table('product_videos')->insert([
                 'type' => 'videos',
                 'path' => $targetName,
                 'product_id' => $productId,
