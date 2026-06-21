@@ -39,7 +39,7 @@
                     <template v-if="media.type == 'videos'">
                         <video
                             controls
-                            width="100%"
+                            class="max-h-screen w-full max-w-full"
                             :alt="media.video_url"
                             :key="media.video_url"
                         >

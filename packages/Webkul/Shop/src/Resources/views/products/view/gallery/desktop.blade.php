@@ -89,7 +89,7 @@
         >
             <video
                 controls
-                width="475"
+                class="max-h-[610px] max-w-full rounded-xl"
                 alt="{{ $product->name }}"
                 @click="isImageZooming = !isImageZooming"
                 @loadeddata="onMediaLoad()"
