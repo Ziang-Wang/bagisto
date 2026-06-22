@@ -16,6 +16,7 @@ class Action
         public string $title,
         public string $method,
         public mixed $url,
+        public string $target = '',
     ) {}
 
     /**
@@ -29,6 +30,7 @@ class Action
             'title' => $this->title,
             'method' => $this->method,
             'url' => $this->url,
+            'target' => $this->target,
         ];
     }
 }

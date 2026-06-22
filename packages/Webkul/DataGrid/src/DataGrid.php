@@ -247,6 +247,7 @@ abstract class DataGrid
             title: $action['title'],
             method: $action['method'],
             url: $action['url'],
+            target: $action['target'] ?? '',
         );
 
         $this->dispatchEvent('actions.add.after', [$this, $this->actions[count($this->actions) - 1]]);
@@ -661,6 +662,7 @@ abstract class DataGrid
                     'title' => $action->title,
                     'method' => $action->method,
                     'url' => $getUrl($record),
+                    'target' => $action->target,
                 ];
             }
         }
