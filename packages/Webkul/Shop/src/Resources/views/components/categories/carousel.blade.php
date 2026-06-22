@@ -121,7 +121,7 @@
                         .then(response => {
                             this.isLoading = false;
 
-                            this.categories = response.data.data;
+                            this.categories = response.data.data.sort((a, b) => a.name.localeCompare(b.name));
                         }).catch(error => {
                             console.log(error);
                         });

@@ -74,12 +74,62 @@ class SiteContentMigrator
     }
 
     /**
-     * Generate the storefront logo as a small text SVG and point the channel
-     * at it. Done in code (rather than shipping a binary asset that would live
-     * in gitignored storage) so a from-scratch deploy reproduces the exact
-     * same branding. Idempotent: it overwrites the file and column each run.
+     * Point the channel at the storefront logo. Prefers the real brand logo
+     * image copied from the WooCommerce uploads (`branding.logo`); when that
+     * file is unavailable it falls back to a generated text wordmark SVG built
+     * from `branding.logo_segments`. Done in code so a from-scratch deploy
+     * reproduces the exact same branding. Idempotent: overwrites each run.
      */
     protected function migrateBranding(Command $console): void
+    {
+        if ($logo = $this->copyBrandLogo()) {
+            DB::table('channels')->where('id', $this->channelId)->update(['logo' => $logo]);
+
+            $console->info('  Storefront logo set to image: '.$logo);
+
+            return;
+        }
+
+        if ($logo = $this->buildWordmarkLogo()) {
+            DB::table('channels')->where('id', $this->channelId)->update(['logo' => $logo]);
+
+            $console->info('  Storefront logo set to wordmark: '.$this->brandName());
+        }
+    }
+
+    /**
+     * Copy the configured brand logo image from the WooCommerce uploads
+     * directory into public storage and return its (public-disk relative)
+     * path. Returns null when no logo is configured or the file is missing.
+     */
+    protected function copyBrandLogo(): ?string
+    {
+        $relative = trim((string) config('woo-importer.branding.logo', ''));
+
+        if ($relative === '') {
+            return null;
+        }
+
+        $absolute = rtrim((string) config('woo-importer.uploads_path'), '/').'/'.ltrim($relative, '/');
+
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION)) ?: 'jpg';
+        $target = 'channel/'.$this->channelId.'/logo.'.$ext;
+
+        Storage::disk('public')->put($target, file_get_contents($absolute));
+
+        return $target;
+    }
+
+    /**
+     * Build the storefront logo as a small text SVG (the fallback when no
+     * brand logo image is configured) and return its public-disk path. Returns
+     * null when no logo segments are configured.
+     */
+    protected function buildWordmarkLogo(): ?string
     {
         $segments = array_values(array_filter(
             (array) config('woo-importer.branding.logo_segments', []),
@@ -87,7 +137,7 @@ class SiteContentMigrator
         ));
 
         if (empty($segments)) {
-            return;
+            return null;
         }
 
         $wordmark = $this->brandName();
@@ -108,9 +158,7 @@ class SiteContentMigrator
 
         Storage::disk('public')->put($path, $svg);
 
-        DB::table('channels')->where('id', $this->channelId)->update(['logo' => $path]);
-
-        $console->info("  Storefront logo set to: {$wordmark}");
+        return $path;
     }
 
     /**

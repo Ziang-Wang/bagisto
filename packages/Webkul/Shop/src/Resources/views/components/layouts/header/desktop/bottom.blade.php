@@ -15,8 +15,9 @@
         >
             <img
                 src="{{ core()->getCurrentChannel()->logo_url ?? bagisto_asset('images/logo.svg') }}"
-                width="131"
-                height="29"
+                class="h-14 w-auto"
+                width="56"
+                height="56"
                 alt="{{ config('app.name') }}"
             >
         </a>
@@ -355,10 +356,10 @@
                     </span>
                 </div>
 
-                <!-- Show only first 4 categories in main navigation -->
+                <!-- Curated top-nav categories: exclude a few, sorted alphabetically by name -->
                 <div
                     class="group relative flex h-[77px] items-center border-b-4 border-transparent hover:border-b-4 hover:border-navyBlue"
-                    v-for="category in categories.slice(0, 4)"
+                    v-for="category in categories.filter(c => ! ['gear-shift-lever', 'foot-peg-pedal-bracket'].includes(c.slug)).sort((a, b) => a.name.localeCompare(b.name))"
                 >
                     <span>
                         <a

@@ -67,8 +67,17 @@ return [
     'branding' => [
         'wordmark' => env('WOO_BRAND_WORDMARK', 'URmotorparts'),
 
-        // Coloured pieces that compose the logo, in order. Their concatenated
-        // text should equal `wordmark`; `color` is any CSS colour.
+        // Header logo image. Path is RELATIVE to the WooCommerce uploads
+        // directory (`uploads_path`), i.e. the same wp-content/uploads-relative
+        // form WordPress stores. This is the real store logo registered in the
+        // legacy theme (`site_logo`). When the file exists it becomes the
+        // storefront logo (copied into public storage); otherwise the importer
+        // falls back to the text wordmark SVG built from `logo_segments`.
+        'logo' => env('WOO_BRAND_LOGO', '2025/01/URmotorparts-300x300.jpg'),
+
+        // Fallback wordmark: coloured pieces that compose the text logo, in
+        // order, used only when no `logo` image is available. Their
+        // concatenated text should equal `wordmark`; `color` is any CSS colour.
         'logo_segments' => [
             ['text' => 'UR', 'color' => '#0f172a'],
             ['text' => 'motor', 'color' => '#f59e0b'],
