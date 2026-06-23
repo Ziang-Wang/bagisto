@@ -6,8 +6,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Webkul\Category\Repositories\CategoryRepository;
-use Webkul\Product\Repositories\ProductRepository;
 use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
 
@@ -44,7 +42,6 @@ class SiteContentMigrator
         $this->migrateStoreIdentity($console);
         $this->migrateBranding($console);
         $this->migrateCmsPages($console);
-        $this->removeExcludedCategories($console);
         $this->normalizeCategoryTree($console);
         $this->decorateCategories($console);
         $this->rebuildHomePage($console);
@@ -239,81 +236,6 @@ class SiteContentMigrator
         }
 
         $console->info("  CMS pages migrated: {$migrated}");
-    }
-
-    /**
-     * Drop the categories listed in `content.exclude_categories` (by slug),
-     * together with the products that live ONLY inside them (and their
-     * descendants). Products that also belong to another, non-excluded
-     * category are left untouched. Runs on every migration so a from-scratch
-     * deploy never resurrects a pruned category. Idempotent.
-     */
-    protected function removeExcludedCategories(Command $console): void
-    {
-        $slugs = array_values(array_filter((array) config('woo-importer.content.exclude_categories', [])));
-
-        if (empty($slugs)) {
-            return;
-        }
-
-        $rootId = (int) config('woo-importer.defaults.root_category_id', 1);
-        $productRepository = app(ProductRepository::class);
-        $categoryRepository = app(CategoryRepository::class);
-
-        $removedCategories = 0;
-        $removedProducts = 0;
-
-        foreach ($slugs as $slug) {
-            $categoryId = (int) DB::table('category_translations')
-                ->where('slug', $slug)
-                ->value('category_id');
-
-            if (! $categoryId || $categoryId === $rootId) {
-                continue;
-            }
-
-            $category = DB::table('categories')->where('id', $categoryId)->first(['_lft', '_rgt']);
-
-            if (! $category) {
-                continue;
-            }
-
-            // The category plus every descendant (nested-set bounds).
-            $subtreeIds = DB::table('categories')
-                ->where('_lft', '>=', $category->_lft)
-                ->where('_rgt', '<=', $category->_rgt)
-                ->pluck('id')
-                ->all();
-
-            $productIds = DB::table('product_categories')
-                ->whereIn('category_id', $subtreeIds)
-                ->distinct()
-                ->pluck('product_id')
-                ->all();
-
-            foreach ($productIds as $productId) {
-                // Keep products that also live in a category outside this
-                // subtree (root aside) — they belong elsewhere too.
-                $livesElsewhere = DB::table('product_categories')
-                    ->where('product_id', $productId)
-                    ->whereNotIn('category_id', array_merge($subtreeIds, [$rootId]))
-                    ->exists();
-
-                if ($livesElsewhere) {
-                    continue;
-                }
-
-                $productRepository->delete($productId);
-                $removedProducts++;
-            }
-
-            // Deleting the subtree root removes its descendants too (nested
-            // set); translations and product-category links cascade.
-            $categoryRepository->delete($categoryId);
-            $removedCategories++;
-        }
-
-        $console->info("  Excluded categories removed: {$removedCategories} (products deleted: {$removedProducts})");
     }
 
     /**

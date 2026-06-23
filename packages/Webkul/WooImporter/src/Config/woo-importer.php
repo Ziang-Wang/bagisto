@@ -113,15 +113,5 @@ return [
 
         // Number of product carousels (one per best-stocked category) on the home page.
         'product_carousel_count' => (int) env('WOO_HOME_CAROUSELS', 3),
-
-        // Categories (by slug) to drop from the migrated catalogue, together
-        // with the products that live ONLY in them (products also present in
-        // another, non-excluded category are kept). Applied on every migration
-        // so a from-scratch deploy stays consistent. e.g. pruning off-brand
-        // categories carried over from the legacy store.
-        'exclude_categories' => array_filter(array_map(
-            'trim',
-            explode(',', (string) env('WOO_EXCLUDE_CATEGORIES', 'parking-sensor'))
-        )),
     ],
 ];
