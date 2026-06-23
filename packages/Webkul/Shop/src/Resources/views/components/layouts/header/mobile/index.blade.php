@@ -414,7 +414,7 @@
             <div class="flex-shrink-0 w-full h-full px-6 overflow-auto">
                 <div class="py-4">
                         <div
-                            v-for="category in categories"
+                            v-for="category in categories.slice().sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name))"
                             :key="category.id"
                             :class="{'mb-2': category.children && category.children.length}"
                         >

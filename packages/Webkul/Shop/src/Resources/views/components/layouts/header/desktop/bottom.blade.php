@@ -293,7 +293,7 @@
         >
             <div
                 class="group relative flex h-[77px] items-center border-b-4 border-transparent hover:border-b-4 hover:border-navyBlue"
-                v-for="category in categories"
+                v-for="category in categories.slice().sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name))"
             >
                 <span>
                     <a
@@ -442,7 +442,7 @@
                             <div class="h-[calc(100vh-74px)] w-full flex-shrink-0 overflow-auto">
                                 <div class="py-4">
                                     <div
-                                        v-for="category in categories"
+                                        v-for="category in categories.slice().sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name))"
                                         :key="category.id"
                                         :class="{'mb-2': category.children && category.children.length}"
                                     >
