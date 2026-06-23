@@ -356,10 +356,12 @@
                     </span>
                 </div>
 
-                <!-- Curated top-nav categories: exclude a few, sorted alphabetically by name -->
+                <!-- Top-nav categories ordered by the admin "position" field (set it
+                     in Catalog > Categories). Equal positions fall back to A-Z so the
+                     order stays stable until positions are assigned. -->
                 <div
                     class="group relative flex h-[77px] items-center border-b-4 border-transparent hover:border-b-4 hover:border-navyBlue"
-                    v-for="category in categories.filter(c => ! ['gear-shift-lever', 'foot-peg-pedal-bracket'].includes(c.slug)).sort((a, b) => a.name.localeCompare(b.name))"
+                    v-for="category in categories.slice().sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name))"
                 >
                     <span>
                         <a
