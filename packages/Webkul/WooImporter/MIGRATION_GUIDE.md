@@ -93,18 +93,19 @@ docker exec -u www-data urmotorparts php artisan optimize:clear
 
 ### 2.3 转为正式运行容器（开机自启 + 去掉迁移挂载）
 
-迁移完成后,把容器重建为正式版本:**去掉只在迁移时用的 woo-uploads 挂载**,并加 `--restart unless-stopped`(机器重启 / 容器崩溃后自动拉起)。数据持久在 `urmotorparts-mysql` + `urmotorparts-storage` 两个命名卷里,`docker rm` 不会丢、也无需再迁移:
+迁移完成后,把容器重建为正式版本:**去掉只在迁移时用的 woo-uploads 挂载**,并加 `--restart always`(机器重启 / 容器崩溃 / Docker 守护进程重启后都自动拉起,即使之前被手动 `docker stop` 过)。数据持久在 `urmotorparts-mysql` + `urmotorparts-storage` 两个命名卷里,`docker rm` 不会丢、也无需再迁移:
 
 ```bash
 docker rm -f urmotorparts
-docker run -d --name urmotorparts --restart unless-stopped -p 80:80 \
+docker run -d --name urmotorparts --restart always -p 80:80 \
   -v urmotorparts-mysql:/var/lib/mysql \
   -v urmotorparts-storage:/var/www/bagisto/storage \
   -e APP_URL=https://your-domain.com \
   urmotorparts:prod
 ```
 
-> - **开机自启**:`--restart unless-stopped` + Docker 守护进程开机自启(确认 `sudo systemctl enable docker`),机器重启后容器自动恢复;只有你主动 `docker stop` 的才不会自动起。
+> - **开机自启**:`--restart always` + Docker 守护进程开机自启(确认 `sudo systemctl enable docker`),机器重启 / Docker 重启后容器都会自动恢复——**即使之前被 `docker stop` 过也会被拉起**(这是 `always` 与 `unless-stopped` 的区别)。
+> - 已在运行的容器要改这个策略**无需重建**,直接 `docker update --restart always urmotorparts` 即可。
 > - 这个正式容器**不再依赖**仓库里的 `storage/woo-uploads`——迁移源(`woo_dump.sql.gz` + `storage/woo-uploads`)确认无误后可删,释放空间。
 > - 容器自带 nginx + php-fpm + mysql + supervisor,无需独立 MySQL;`docker rm` 后数据仍在卷里。
 > - **HTTPS**:在容器前放一层反代/负载均衡做 TLS(或用云上 LB);改后台路径用 `-e APP_ADMIN_URL=backend`。
