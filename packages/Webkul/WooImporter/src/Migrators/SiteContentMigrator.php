@@ -83,18 +83,50 @@ class SiteContentMigrator
     protected function migrateBranding(Command $console): void
     {
         if ($logo = $this->copyBrandLogo()) {
-            DB::table('channels')->where('id', $this->channelId)->update(['logo' => $logo]);
-
             $console->info('  Storefront logo set to image: '.$logo);
-
-            return;
-        }
-
-        if ($logo = $this->buildWordmarkLogo()) {
-            DB::table('channels')->where('id', $this->channelId)->update(['logo' => $logo]);
-
+        } elseif ($logo = $this->buildWordmarkLogo()) {
             $console->info('  Storefront logo set to wordmark: '.$this->brandName());
         }
+
+        if ($logo) {
+            DB::table('channels')->where('id', $this->channelId)->update(['logo' => $logo]);
+        }
+
+        // Browser-tab icon. Use a dedicated square image when configured,
+        // otherwise reuse the logo so the favicon matches the store logo.
+        if ($favicon = ($this->copyFavicon() ?: $logo)) {
+            DB::table('channels')->where('id', $this->channelId)->update(['favicon' => $favicon]);
+
+            $console->info('  Storefront favicon set to: '.$favicon);
+        }
+    }
+
+    /**
+     * Copy a dedicated favicon image (config `branding.favicon`, relative to
+     * the WooCommerce uploads directory) into public storage. Returns the
+     * stored path, or null when no favicon is configured or the file is
+     * missing (the caller then falls back to reusing the logo).
+     */
+    protected function copyFavicon(): ?string
+    {
+        $relative = trim((string) config('woo-importer.branding.favicon', ''));
+
+        if ($relative === '') {
+            return null;
+        }
+
+        $absolute = rtrim((string) config('woo-importer.uploads_path'), '/').'/'.ltrim($relative, '/');
+
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION)) ?: 'png';
+        $target = 'channel/'.$this->channelId.'/favicon.'.$ext;
+
+        Storage::disk('public')->put($target, file_get_contents($absolute));
+
+        return $target;
     }
 
     /**

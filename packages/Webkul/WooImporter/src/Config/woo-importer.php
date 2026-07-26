@@ -75,6 +75,12 @@ return [
         // falls back to the text wordmark SVG built from `logo_segments`.
         'logo' => env('WOO_BRAND_LOGO', '2025/01/URmotorparts-300x300.jpg'),
 
+        // Browser-tab favicon. Path is RELATIVE to the WooCommerce uploads
+        // directory (`uploads_path`), same as `logo`. Leave empty to reuse the
+        // logo as the favicon (recommended when the logo is square). Set a
+        // dedicated square PNG/ICO here to override.
+        'favicon' => env('WOO_BRAND_FAVICON', ''),
+
         // Fallback wordmark: coloured pieces that compose the text logo, in
         // order, used only when no `logo` image is available. Their
         // concatenated text should equal `wordmark`; `color` is any CSS colour.
