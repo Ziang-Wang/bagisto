@@ -407,6 +407,18 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Contact Us: fixed link kept as the last item in the header nav -->
+                <div class="group relative flex h-[77px] items-center border-b-4 border-transparent hover:border-b-4 hover:border-navyBlue">
+                    <span>
+                        <a
+                            href="{{ route('shop.home.contact_us') }}"
+                            class="inline-block px-5 uppercase"
+                        >
+                            Contact Us
+                        </a>
+                    </span>
+                </div>
             </div>
 
             <!-- Bagisto Drawer Integration -->

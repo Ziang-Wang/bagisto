@@ -532,7 +532,10 @@ class SiteContentMigrator
             }
 
             $links[] = [
-                'url' => $appUrl.'/page/'.$meta['url_key'],
+                // "Contact us" points at the built-in contact form route, not a CMS page.
+                'url' => $meta['url_key'] === 'contact-us'
+                    ? $appUrl.'/contact-us'
+                    : $appUrl.'/page/'.$meta['url_key'],
                 'title' => $meta['title'] ?? ucwords(str_replace('-', ' ', $meta['url_key'])),
             ];
         }
