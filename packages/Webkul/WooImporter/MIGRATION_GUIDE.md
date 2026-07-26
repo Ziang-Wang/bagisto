@@ -218,7 +218,83 @@ sudo systemctl daemon-reload && sudo systemctl enable --now bagisto
 
 - **支付方式**：后台 → 配置 → 销售 → 支付方式（内置 Stripe / PayPal / Razorpay / PayU，填入密钥）。
 - **物流方式**：后台 → 配置 → 销售 → 配送方式（免运费 / 统一运费 / 按重量）。
-- **税率**：后台 → 配置 → 销售 → 税。
+- **税率**：欧洲 15% 已由 `--with-tax` / `--all` 自动建好（见 `woo-importer.php` 的 `tax` 配置）；其余税规则在后台 → 配置 → 销售 → 税 里加。
 - **邮件 / SMTP**：在 `.env` 配置 `MAIL_*`。
 - **SEO 301 重定向**：迁移已尽量沿用商品/分类 slug，建议在反代层为旧链接配置 301。
-- **域名 / DNS / HTTPS**：测试无误后切换解析并配置证书。
+- **域名 / DNS / HTTPS**：见 §7。
+
+---
+
+## 7. 正式上线（域名 + HTTPS）
+
+单容器只监听 HTTP。上线用 **Caddy 反向代理 + 自动 Let's Encrypt 证书**坐在容器前面。`www` 为规范域名，apex 301 跳 www。
+
+**架构**：`用户 → Caddy(:443, TLS) → 反代 → 容器 127.0.0.1:8080`
+
+### 7.1 容器：只监听本地 8080 + 用最终 HTTPS 域名做 APP_URL
+
+> 重建容器只是换端口/环境变量,**数据在命名卷里不受影响**;`APP_KEY` 烤在镜像里,重建不变。⚠️ 复用你现有的卷名(本项目生产是 `urm-mysql` / `urm-storage`)。
+
+```bash
+docker rm -f urmotorparts
+docker run -d --name urmotorparts --restart always \
+  -p 127.0.0.1:8080:80 \
+  -v urm-mysql:/var/lib/mysql \
+  -v urm-storage:/var/www/bagisto/storage \
+  -e APP_URL=https://www.urmotorparts.com -e TZ=UTC \
+  urmotorparts:prod
+```
+
+`bootstrap/app.php` 已 `trustProxies(at: '*')`,配合 Caddy 传的 `X-Forwarded-Proto`,全站链接/分页/表单/Cookie 都会正确用 HTTPS。
+
+### 7.2 装 Caddy 并配置
+
+```bash
+sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt-get update && sudo apt-get install -y caddy
+```
+
+`/etc/caddy/Caddyfile`：
+
+```caddyfile
+{
+	email urmotorparts@gmail.com
+}
+
+www.urmotorparts.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+urmotorparts.com {
+	redir https://www.urmotorparts.com{uri} permanent
+}
+```
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo systemctl reload caddy
+```
+
+### 7.3 DNS + 防火墙（在各自控制台做）
+
+- **云厂商安全组**：放通 **443** 入站（80 一般已通）。
+- **DNS（本域名解析在阿里云/万网）**：把 A 记录指到新服务器 IP——`www`、`@`、以及泛解析 `*` 各一条 A → 新 IP。精确的 `www` 记录会优先于 `*`。
+- DNS 生效后 `sudo systemctl reload caddy` 触发签发;证书 Let's Encrypt 自动续期。
+
+### 7.4 校验
+
+```bash
+curl -sI https://www.urmotorparts.com/ | head -1          # 200
+curl -so /dev/null -w '%{http_code} -> %{redirect_url}\n' https://urmotorparts.com/   # 301 -> www
+curl -s https://www.urmotorparts.com/ | grep -o 'http://[0-9.]*' | sort -u           # 应为空
+```
+
+> ⚠️ **别把服务器 IP/裸 IP 当 APP_URL 迁移**。迁移器写内容时用**相对路径**(hero 图、页脚链接),CMS 正文里的旧站绝对链接也会被转相对,所以内容不含主机名、天然适配任何域名。若历史数据里仍残留某个旧的绝对基址,可全局替换(扫描所有文本列)：
+> `UPDATE <表> SET <列> = REPLACE(<列>, 'http://OLD-BASE', 'https://www.urmotorparts.com')`,改完 `php artisan responsecache:clear`。

@@ -485,7 +485,10 @@ class SiteContentMigrator
      */
     protected function heroImageOptions(string $bannerPath, string $cta): array
     {
-        $url = Storage::disk('public')->url($bannerPath);
+        // Root-relative URL so the stored hero works under any host/scheme
+        // (migration must not bake the current APP_URL host into content).
+        $url = parse_url((string) Storage::disk('public')->url($bannerPath), PHP_URL_PATH)
+            ?: '/storage/'.ltrim($bannerPath, '/');
         $alt = $this->brandName();
 
         $html = '<a href="'.e($cta).'" class="um-hero" aria-label="'.e($alt).'">'
@@ -552,8 +555,6 @@ class SiteContentMigrator
      */
     protected function footerLinkOptions(): ?array
     {
-        $appUrl = rtrim((string) config('app.url'), '/');
-
         $links = [];
 
         foreach ($this->mapping->all(Mapping::ENTITY_CMS_PAGE) as $wooId => $bagistoId) {
@@ -564,10 +565,11 @@ class SiteContentMigrator
             }
 
             $links[] = [
+                // Root-relative so the link is host/scheme independent.
                 // "Contact us" points at the built-in contact form route, not a CMS page.
                 'url' => $meta['url_key'] === 'contact-us'
-                    ? $appUrl.'/contact-us'
-                    : $appUrl.'/page/'.$meta['url_key'],
+                    ? '/contact-us'
+                    : '/page/'.$meta['url_key'],
                 'title' => $meta['title'] ?? ucwords(str_replace('-', ' ', $meta['url_key'])),
             ];
         }
