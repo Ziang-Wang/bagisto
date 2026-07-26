@@ -114,4 +114,30 @@ return [
         // Number of product carousels (one per best-stocked category) on the home page.
         'product_carousel_count' => (int) env('WOO_HOME_CAROUSELS', 3),
     ],
+
+    /**
+     * Tax setup. Not read from WooCommerce — a fixed business rule applied on
+     * every migration so a fresh re-import always rebuilds the same tax config.
+     * Creates one flat `rate`% tax rate per country in `countries` (the string
+     * preset "europe" expands to geographic Europe; or give an explicit array
+     * of ISO2 codes), bundles them into a tax category (`category_code`), and
+     * — when `set_as_default` is true — makes it the default product tax
+     * category so every product is taxed by it. Rates only match those
+     * countries' shipping addresses, so everyone else is charged 0.
+     */
+    'tax' => [
+        'enabled' => (bool) env('WOO_TAX_ENABLED', true),
+
+        // Flat percentage charged for the listed countries.
+        'rate' => (float) env('WOO_TAX_RATE', 15),
+
+        // Tax category code (find-or-create; keeps the setup idempotent).
+        'category_code' => env('WOO_TAX_CATEGORY', 'EU-VAT'),
+
+        // Make it the default product tax category (applies store-wide).
+        'set_as_default' => (bool) env('WOO_TAX_AS_DEFAULT', true),
+
+        // "europe" preset (see TaxMigrator::EUROPE) or an explicit ISO2 array.
+        'countries' => env('WOO_TAX_COUNTRIES', 'europe'),
+    ],
 ];

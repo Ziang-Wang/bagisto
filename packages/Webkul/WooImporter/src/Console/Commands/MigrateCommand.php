@@ -11,6 +11,7 @@ use Webkul\WooImporter\Migrators\OrderMigrator;
 use Webkul\WooImporter\Migrators\ProductMigrator;
 use Webkul\WooImporter\Migrators\ReviewMigrator;
 use Webkul\WooImporter\Migrators\SiteContentMigrator;
+use Webkul\WooImporter\Migrators\TaxMigrator;
 use Webkul\WooImporter\Migrators\VideoMigrator;
 use Webkul\WooImporter\Support\Mapping;
 use Webkul\WooImporter\Support\WooClient;
@@ -31,6 +32,7 @@ class MigrateCommand extends Command
         {--with-reviews : Also migrate product reviews}
         {--with-videos : Also migrate product videos}
         {--with-content : Also replace demo storefront content (store name, CMS pages, home page, footer)}
+        {--with-tax : Also set up the European 15% tax rates (see woo-importer.tax config)}
         {--uploads= : Absolute path to the copied wp-content/uploads directory (overrides config)}
         {--strategy= : Variation mapping strategy: auto|configurable|flatten}
         {--limit= : Limit the number of products (useful for a trial run)}';
@@ -115,6 +117,12 @@ class MigrateCommand extends Command
             $this->newLine();
             $this->comment('[+] Storefront content (store name, CMS pages, home page, footer)');
             app(SiteContentMigrator::class)->migrate($this);
+        }
+
+        if ($all || $this->option('with-tax')) {
+            $this->newLine();
+            $this->comment('[+] Tax rates (European 15%)');
+            app(TaxMigrator::class)->migrate($this);
         }
 
         $this->newLine();

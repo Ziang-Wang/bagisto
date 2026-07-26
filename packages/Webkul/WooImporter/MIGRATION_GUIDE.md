@@ -167,14 +167,14 @@ sudo systemctl daemon-reload && sudo systemctl enable --now bagisto
 | 命令 | 作用 |
 |------|------|
 | `php artisan woocommerce:migrate` | 一键迁移。**默认只导**：分类 → 属性 → 商品（含图片）。其余靠 `--with-*` / `--all` 追加 |
-| `php artisan woocommerce:migrate --all` | 全量：上述全部 + 客户 + 订单 + 优惠券 + 评论 + **视频** + storefront 内容（品牌 / hero / 服务条 / 页脚 / CMS 页） |
+| `php artisan woocommerce:migrate --all` | 全量：上述全部 + 客户 + 订单 + 优惠券 + 评论 + **视频** + storefront 内容（品牌 / hero / 服务条 / 页脚 / CMS 页）+ **税率（欧洲 15%）** |
 | `php artisan woocommerce:migrate:categories` | 仅分类 |
 | `php artisan woocommerce:migrate:attributes` | 仅可配置属性及选项 |
 | `php artisan woocommerce:migrate:products` | 仅商品 |
 | `php artisan woocommerce:migrate:customers` | 从订单邮箱创建客户 |
 | `php artisan woocommerce:migrate-content` | 仅重建 storefront 内容（店名 / 品牌 / hero / 首页区块 / 页脚 / CMS 页） |
 
-> ⚠️ **没有独立的视频子命令**。视频只能通过主命令 `--with-videos`（或 `--all`）迁移；订单 / 优惠券 / 评论 / 内容同理，都是主命令开关。
+> ⚠️ **没有独立的视频子命令**。视频只能通过主命令 `--with-videos`（或 `--all`）迁移；订单 / 优惠券 / 评论 / 内容 / 税率同理，都是主命令开关。
 
 `woocommerce:migrate` 的选项：
 
@@ -188,6 +188,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now bagisto
 --with-reviews    迁移商品评论
 --with-videos     迁移商品视频
 --with-content    替换 demo storefront 内容（店名 / CMS 页 / 首页 / 页脚 / 品牌 / hero）
+--with-tax        建立欧洲各国 15% 税率并设为默认商品税分类（见 woo-importer.php 的 tax 配置）
 --uploads=PATH    指定 wp-content/uploads 的绝对路径（覆盖配置；容器内迁移用它指到挂载点）
 --strategy=auto   变体映射策略：auto（默认）| configurable | flatten
 --limit=N         仅导入前 N 个商品（试跑用）
