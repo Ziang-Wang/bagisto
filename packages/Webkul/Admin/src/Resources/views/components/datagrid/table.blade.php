@@ -230,6 +230,10 @@
 
                     switch (method) {
                         case 'get':
+                            if (! action.url) {
+                                break;
+                            }
+
                             if (action.target === '_blank') {
                                 window.open(action.url, '_blank', 'noopener');
                             } else {

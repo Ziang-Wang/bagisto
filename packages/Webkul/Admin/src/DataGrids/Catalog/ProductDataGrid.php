@@ -221,7 +221,12 @@ class ProductDataGrid extends DataGrid
             'method' => 'GET',
             'target' => '_blank',
             'url' => function ($row) {
-                return route('shop.product_or_category.index', $row->url_key);
+                // Some products have no storefront url_key (e.g. missing a
+                // product_flat row for the current channel/locale). Guard against
+                // it so route() does not throw and break the whole datagrid.
+                return $row->url_key
+                    ? route('shop.product_or_category.index', $row->url_key)
+                    : '';
             },
         ]);
 
