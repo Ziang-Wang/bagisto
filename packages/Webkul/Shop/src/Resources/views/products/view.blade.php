@@ -11,6 +11,22 @@
     $attributeData = collect($customAttributeValues)->filter(fn ($item) => ! empty($item['value']));
 @endphp
 
+{{-- Restore rich-text styling inside the product description. Tailwind's
+     preflight reset strips list markers and table borders, so lists (<ol>/<ul>)
+     and tables entered via the admin editor render without numbers/bullets. --}}
+@push('styles')
+    <style>
+        .um-product-description ol { list-style: decimal outside; margin: 0 0 1rem; padding-left: 1.75rem; }
+        .um-product-description ul { list-style: disc outside; margin: 0 0 1rem; padding-left: 1.75rem; }
+        .um-product-description li { margin: .25rem 0; }
+        .um-product-description p { margin: 0 0 1rem; }
+        .um-product-description a { color: #2563eb; text-decoration: underline; }
+        .um-product-description table { border-collapse: collapse; margin: 0 0 1rem; }
+        .um-product-description table td, .um-product-description table th { border: 1px solid #e5e7eb; padding: .5rem .75rem; }
+        .um-product-description img { max-width: 100%; height: auto; }
+    </style>
+@endpush
+
 <!-- SEO Meta Content -->
 @push('meta')
     <meta name="description" content="{{ trim($product->meta_description) != "" ? $product->meta_description : \Illuminate\Support\Str::limit(strip_tags($product->description), 120, '') }}"/>
@@ -87,9 +103,9 @@
                     :is-selected="true"
                 >
                     <div class="container mt-[60px] max-1180:px-5">
-                        <p class="text-lg text-zinc-500 max-1180:text-sm">
+                        <div class="um-product-description text-lg text-zinc-500 max-1180:text-sm">
                             {!! $product->description !!}
-                        </p>
+                        </div>
                     </div>
                 </x-shop::tabs.item>
 
@@ -171,7 +187,7 @@
             </x-slot>
 
             <x-slot:content class="max-sm:px-0">
-                <div class="mb-5 text-lg text-zinc-500 max-1180:text-sm max-md:mb-1 max-md:px-4">
+                <div class="um-product-description mb-5 text-lg text-zinc-500 max-1180:text-sm max-md:mb-1 max-md:px-4">
                     {!! $product->description !!}
                 </div>
             </x-slot>
