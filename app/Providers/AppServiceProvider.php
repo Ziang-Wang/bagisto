@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Shipping\Carriers\CountryRate;
 use Barryvdh\Debugbar\Facades\Debugbar;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\ServiceProvider;
@@ -38,5 +40,21 @@ class AppServiceProvider extends ServiceProvider
         ParallelTesting::setUpTestDatabase(function (string $database, int $token) {
             Artisan::call('db:seed');
         });
+
+        $this->registerShippingCarriers();
+    }
+
+    /**
+     * Append this store's custom shipping carriers to the ones the Shipping
+     * package registers. Done here (rather than editing the package config) so
+     * core stays untouched.
+     */
+    protected function registerShippingCarriers(): void
+    {
+        Config::set('carriers.countryrate', [
+            'code' => 'countryrate',
+            'title' => Config::get('country-shipping.title', 'Shipping'),
+            'class' => CountryRate::class,
+        ]);
     }
 }
