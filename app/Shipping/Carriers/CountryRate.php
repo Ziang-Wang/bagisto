@@ -98,12 +98,20 @@ class CountryRate extends AbstractShipping
     }
 
     /**
-     * The country the order ships to. Falls back to the billing address for
+     * The country the order ships to.
+     *
+     * The cart page's "Estimate Shipping and Tax" widget posts a country but
+     * only sets it as an unsaved relation, which Cart::collectTotals() discards
+     * when it refreshes the cart — so by the time rates are collected the cart
+     * has no address. Fall back to that request input (only the estimate
+     * endpoint sends a top-level `country`) so the estimate shows the rates for
+     * the country the shopper actually typed. Billing is the last resort for
      * carts with no shipping address (e.g. virtual items).
      */
     protected function shippingCountry(object $cart): ?string
     {
         $country = $cart->shipping_address->country
+            ?? request()->input('country')
             ?? $cart->billing_address->country
             ?? null;
 

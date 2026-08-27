@@ -28,7 +28,7 @@ return [
     'title' => 'Shipping',
 
     'groups' => [
-        // United States: two service levels.
+        // United States.
         [
             'countries' => ['US'],
             'methods' => [
@@ -38,23 +38,17 @@ return [
                     'description' => 'Delivery in 7-15 business days.',
                     'rate' => 10.00,
                     'type' => 'per_order',
-                ], [
-                    'code' => 'expedited',
-                    'title' => 'Expedited Shipping',
-                    'description' => 'Delivery in 3-7 business days.',
-                    'rate' => 22.00,
-                    'type' => 'per_order',
                 ],
             ],
         ],
 
-        // Everywhere else: single international rate.
+        // Everywhere else: single international flat rate.
         [
             'countries' => '*',
             'methods' => [
                 [
-                    'code' => 'standard',
-                    'title' => 'Standard Shipping',
+                    'code' => 'flatrate',
+                    'title' => 'Flat Rate',
                     'description' => 'International delivery.',
                     'rate' => 33.99,
                     'type' => 'per_order',
