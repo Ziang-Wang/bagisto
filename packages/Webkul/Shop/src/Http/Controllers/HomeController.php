@@ -76,6 +76,7 @@ class HomeController extends Controller
             Mail::queue(new ContactUs($contactRequest->only([
                 'name',
                 'email',
+                'country',
                 'contact',
                 'message',
             ])));

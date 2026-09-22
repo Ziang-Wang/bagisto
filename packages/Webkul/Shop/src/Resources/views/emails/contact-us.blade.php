@@ -18,4 +18,11 @@
             <a href="tel:{{ $contactUs['contact'] }}">{{ $contactUs['contact'] }}</a>.
         @endif
     </p>
+
+    @if (! empty($contactUs['country']))
+        <p style="font-size: 16px;color: #384860;line-height: 24px;margin-bottom: 40px">
+            @lang('shop::app.checkout.onepage.address.country'):
+            {{ core()->country_name($contactUs['country']) ?: $contactUs['country'] }}
+        </p>
+    @endif
 @endcomponent

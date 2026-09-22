@@ -117,6 +117,39 @@
                         <x-shop::form.control-group.error control-name="email" />
                     </x-shop::form.control-group>
 
+                    <!-- Country -->
+                    <x-shop::form.control-group>
+                        <x-shop::form.control-group.label class="required">
+                            @lang('shop::app.checkout.onepage.address.country')
+                        </x-shop::form.control-group.label>
+
+                        <x-shop::form.control-group.control
+                            type="select"
+                            class="px-6 py-4"
+                            name="country"
+                            rules="required"
+                            :value="old('country')"
+                            :label="trans('shop::app.checkout.onepage.address.country')"
+                            :aria-label="trans('shop::app.checkout.onepage.address.country')"
+                            aria-required="true"
+                        >
+                            <option value="">
+                                @lang('shop::app.checkout.cart.summary.estimate-shipping.select-country')
+                            </option>
+
+                            @foreach (core()->countries() as $country)
+                                <option
+                                    value="{{ $country->code }}"
+                                    {{ old('country') == $country->code ? 'selected' : '' }}
+                                >
+                                    {{ $country->name }}
+                                </option>
+                            @endforeach
+                        </x-shop::form.control-group.control>
+
+                        <x-shop::form.control-group.error control-name="country" />
+                    </x-shop::form.control-group>
+
                     <!-- Tel / Contact -->
                     <x-shop::form.control-group>
                         <x-shop::form.control-group.label>
