@@ -142,13 +142,21 @@ class SmartButtonController extends Controller
             $cart->haveStockableItems()
             && $cart->shipping_address
         ) {
+            // PayPal records this as the transaction's ship-to address (what Seller
+            // Protection checks against), so it must be the shipping address in full.
+            $shippingAddressLines = $this->getAddressLines($cart->shipping_address->address);
+
             $data['application_context']['shipping_preference'] = 'SET_PROVIDED_ADDRESS';
 
             $data['purchase_units'][0] = array_merge($data['purchase_units'][0], [
                 'shipping' => [
+                    'name' => [
+                        'full_name' => trim($cart->shipping_address->first_name.' '.$cart->shipping_address->last_name),
+                    ],
+
                     'address' => [
-                        'address_line_1' => current($billingAddressLines),
-                        'address_line_2' => last($billingAddressLines),
+                        'address_line_1' => current($shippingAddressLines),
+                        'address_line_2' => last($shippingAddressLines),
                         'admin_area_2' => $cart->shipping_address->city,
                         'admin_area_1' => $cart->shipping_address->state,
                         'postal_code' => $cart->shipping_address->postcode,
