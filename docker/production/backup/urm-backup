@@ -1,0 +1,56 @@
+#!/bin/bash
+# URmotorparts backups, run as root from /etc/cron.d/urm-backup.
+#   urm-backup db       database dump, keeps the newest 30
+#   urm-backup images   uploaded files (storage/app: product/category/theme images), keeps the newest 4
+# Output goes to /home/ubuntu/backup/{db,images}, readable by the ubuntu user only
+# (dumps contain customer data and store settings). Results are logged to backup.log.
+set -uo pipefail
+
+BASE=/home/ubuntu/backup
+CONTAINER=urmotorparts
+DOCKER=/snap/bin/docker
+LOG=$BASE/backup.log
+STAMP=$(date +%Y%m%d-%H%M)
+
+log() { echo "$(date '+%F %T') [$1] $2" >> "$LOG"; }
+
+fail() { rm -f "$out.tmp"; log "$mode" "FAILED: $1"; exit 1; }
+
+# Keep only the newest $3 files matching $2 in directory $1.
+prune() { ls -1t "$1"/$2 2>/dev/null | tail -n +$(($3 + 1)) | xargs -r rm -f; }
+
+mode=${1:-}
+
+case "$mode" in
+db)
+    dir=$BASE/db
+    out=$dir/bagisto-$STAMP.sql.gz
+    keep=30
+    mkdir -p "$dir"
+    $DOCKER exec $CONTAINER mysqldump --single-transaction --routines --triggers --databases bagisto \
+        | gzip > "$out.tmp" || fail "mysqldump error"
+    # A complete dump always ends with this trailer.
+    zcat "$out.tmp" | tail -n 1 | grep -q '^-- Dump completed' || fail "dump incomplete"
+    pattern='bagisto-*.sql.gz'
+    ;;
+images)
+    dir=$BASE/images
+    out=$dir/storage-app-$STAMP.tar.gz
+    keep=4
+    mkdir -p "$dir"
+    $DOCKER exec $CONTAINER tar czf - -C /var/www/bagisto/storage app > "$out.tmp" || fail "tar error"
+    gzip -t "$out.tmp" || fail "archive corrupt"
+    pattern='storage-app-*.tar.gz'
+    ;;
+*)
+    echo "usage: $0 db|images" >&2
+    exit 2
+    ;;
+esac
+
+mv "$out.tmp" "$out"
+prune "$dir" "$pattern" "$keep"
+chown -R ubuntu:ubuntu "$dir"
+chmod 700 "$dir"
+chmod 600 "$dir"/*
+log "$mode" "OK $(basename "$out") $(du -h "$out" | cut -f1), $(ls -1 "$dir" | wc -l) kept"

@@ -1,0 +1,9 @@
+# URmotorparts backups (host clock is Asia/Shanghai). See /usr/local/bin/urm-backup.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+
+# Database: every day at 03:30, newest 30 kept.
+30 3 * * * root flock -n /run/urm-backup.lock /usr/local/bin/urm-backup db
+
+# Uploaded images: every Sunday at 04:00, newest 4 kept.
+0 4 * * 0 root flock -n /run/urm-backup.lock /usr/local/bin/urm-backup images

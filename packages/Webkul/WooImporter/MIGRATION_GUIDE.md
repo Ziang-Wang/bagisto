@@ -298,3 +298,53 @@ curl -s https://www.urmotorparts.com/ | grep -o 'http://[0-9.]*' | sort -u      
 
 > ⚠️ **别把服务器 IP/裸 IP 当 APP_URL 迁移**。迁移器写内容时用**相对路径**(hero 图、页脚链接),CMS 正文里的旧站绝对链接也会被转相对,所以内容不含主机名、天然适配任何域名。若历史数据里仍残留某个旧的绝对基址,可全局替换(扫描所有文本列)：
 > `UPDATE <表> SET <列> = REPLACE(<列>, 'http://OLD-BASE', 'https://www.urmotorparts.com')`,改完 `php artisan responsecache:clear`。
+
+---
+
+## 8. 数据备份
+
+宿主机上用 cron 定时备份：数据库每天一份，上传文件（商品/类目/主题图片等 `storage/app`）每周一份。脚本和定时任务在 `docker/production/backup/`。备份存到 `/home/ubuntu/backup/{db,images}`，只有 `ubuntu` 账号可读，因为里面有顾客资料和支付/邮箱密钥。
+
+| 内容 | 时间（宿主机时区 Asia/Shanghai） | 保留 | 单份大小（2026-11） |
+|---|---|---|---|
+| 数据库 `bagisto`（mysqldump，gzip） | 每天 03:30 | 最新 30 份 | ≈0.6 MB |
+| `storage/app`（tar.gz） | 每周日 04:00 | 最新 4 份 | ≈50 MB |
+
+> 内置 MySQL 还开着 binlog（ROW 格式，保留 30 天），可以用它补回某份备份之后的改动。但**外键级联删除不写进 binlog**（例如删类目时连带删掉的类目翻译、商品归类），所以定时备份才是真正的兜底。备份和网站在同一块盘上，防不了整台服务器出事，记得定期拷一份到别处：
+> `scp -r ubuntu@<服务器IP>:/home/ubuntu/backup/db ./urm-db-backups`
+
+### 8.1 安装（在服务器的仓库目录里）
+
+```bash
+sudo install -o root -g root -m 755 docker/production/backup/urm-backup /usr/local/bin/urm-backup
+sudo install -o root -g root -m 644 docker/production/backup/urm-backup.cron /etc/cron.d/urm-backup
+
+# 各手动跑一次确认可用；每次运行在 backup.log 里记一行 OK/FAILED + 文件名 + 大小
+sudo urm-backup db && sudo urm-backup images
+cat /home/ubuntu/backup/backup.log
+```
+
+脚本顶部写死了容器名 `urmotorparts` 和 docker 路径 `/snap/bin/docker`（本项目生产机的 docker 是 snap 版），换机器时按实际修改。不完整的备份不会替换旧备份，也不会触发清理。
+
+### 8.2 恢复
+
+```bash
+ls -lt /home/ubuntu/backup/db/          # 选一份
+sudo urm-backup db                      # ⚠️ 先把当前库再备份一次
+
+# A. 整库回退到这份备份（覆盖当前 bagisto 库）
+zcat /home/ubuntu/backup/db/bagisto-YYYYMMDD-HHMM.sql.gz | docker exec -i urmotorparts mysql -uroot
+
+# B. 只找回部分数据（比如误删的类目）：先灌进临时库，挑表/行拷回后删掉临时库
+zcat /home/ubuntu/backup/db/bagisto-YYYYMMDD-HHMM.sql.gz \
+  | sed -E '/^(CREATE DATABASE|USE )/ s/`bagisto`/`bagisto_restore`/' \
+  | docker exec -i urmotorparts mysql -uroot
+docker exec urmotorparts mysql -uroot -e 'DROP DATABASE bagisto_restore'
+
+# 图片
+docker exec -i urmotorparts tar xzf - -C /var/www/bagisto/storage < /home/ubuntu/backup/images/storage-app-YYYYMMDD-HHMM.tar.gz
+docker exec urmotorparts chown -R www-data:www-data /var/www/bagisto/storage/app
+
+# 恢复后清页面缓存
+docker exec -u www-data urmotorparts php artisan responsecache:clear
+```
