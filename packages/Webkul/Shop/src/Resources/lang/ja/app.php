@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'カスタマーサービス',
                 'email' => 'Email',
                 'footer-content' => 'フッターコンテンツ',
-                'footer-text' => '© 著作権 2010 - :current_year, Webkul Software (インドで登録済み)。全ての権利を保有しています。',
+                'footer-text' => '著作権 © :current_year URmotorparts。全ての権利を保有しています。',
                 'locale' => 'ロケール',
                 'newsletter-text' => '楽しいニュースレターの準備をしてください！',
                 'order-return' => '注文と返品',

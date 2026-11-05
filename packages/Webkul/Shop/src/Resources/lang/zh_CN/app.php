@@ -609,7 +609,7 @@ return [
                 'customer-service' => '客户服务',
                 'email' => '电子邮件',
                 'footer-content' => '页脚内容',
-                'footer-text' => '© 版权所有 2010 - :current_year，Webkul Software（印度注册）。保留所有权利。',
+                'footer-text' => '版权所有 © :current_year URmotorparts。保留所有权利。',
                 'locale' => '语言',
                 'newsletter-text' => '准备好我们有趣的新闻通讯！',
                 'order-return' => '订单和退货',

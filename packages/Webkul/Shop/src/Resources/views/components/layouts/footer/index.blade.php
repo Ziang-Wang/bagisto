@@ -45,7 +45,7 @@
                 RM248 Wushan Road, Tianhe Dist, Guangzhou, 510000, China
             </p>
 
-            <p>Everything is shipped from China</p>
+            <p>Shipped directly from our factory, quality inspected</p>
         </div>
 
         <!-- For Mobile view -->

@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Customer Service',
                 'email' => 'Email',
                 'footer-content' => 'Footer Content',
-                'footer-text' => '© Copyright 2010 - :current_year, Webkul Software (Registered in India). All rights reserved.',
+                'footer-text' => 'Copyright © :current_year URmotorparts. All rights reserved.',
                 'locale' => 'Locale',
                 'newsletter-text' => 'Get Ready for our Fun Newsletter!',
                 'order-return' => 'Order and Returns',

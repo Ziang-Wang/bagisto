@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Служба підтримки',
                 'email' => 'Електронна пошта',
                 'footer-content' => 'Вміст нижнього колонтитула',
-                'footer-text' => '© Авторське право 2010 - :current_year, Webkul Software (зареєстровано в Індії). Усі права захищені.',
+                'footer-text' => 'Авторське право © :current_year URmotorparts. Усі права захищені.',
                 'locale' => 'Мова',
                 'newsletter-text' => 'Готуйтеся до наших цікавих новин!',
                 'order-return' => 'Замовлення та повернення',

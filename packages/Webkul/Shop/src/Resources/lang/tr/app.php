@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Müşteri Hizmetleri',
                 'email' => 'E-posta',
                 'footer-content' => 'Alt Bilgi İçeriği',
-                'footer-text' => '© Telif Hakkı 2010 - :current_year, Webkul Software. Tüm hakları saklıdır.',
+                'footer-text' => 'Telif Hakkı © :current_year URmotorparts. Tüm hakları saklıdır.',
                 'locale' => 'Dil',
                 'newsletter-text' => 'Bültenimize abone olun, fırsatları kaçırmayın!',
                 'order-return' => 'Sipariş ve İade',

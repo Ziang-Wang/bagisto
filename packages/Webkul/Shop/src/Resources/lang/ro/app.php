@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Serviciu clienți',
                 'email' => 'E-mail',
                 'footer-content' => 'Conținut subsol',
-                'footer-text' => '© Drepturi de autor 2010 - :current_year, Webkul Software (Înregistrat în India). Toate drepturile rezervate.',
+                'footer-text' => 'Drepturi de autor © :current_year URmotorparts. Toate drepturile rezervate.',
                 'locale' => 'Limbă',
                 'newsletter-text' => 'Pregătiți-vă pentru newsletter-ul nostru distractiv!',
                 'order-return' => 'Comenzi și retururi',

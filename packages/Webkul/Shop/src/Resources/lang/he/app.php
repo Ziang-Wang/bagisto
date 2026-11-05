@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'שירות לקוחות',
                 'email' => 'אימייל',
                 'footer-content' => 'תוכן תחתית הדף',
-                'footer-text' => '© זכויות יוצרים 2010 - :current_year, Webkul Software (רשומה בהודו). כל הזכויות שמורות.',
+                'footer-text' => 'זכויות יוצרים © :current_year URmotorparts. כל הזכויות שמורות.',
                 'locale' => 'אזור',
                 'newsletter-text' => 'הכנסו לרשימת התפוצה שלנו וקבלו עדכונים והצעות מרשימות!',
                 'order-return' => 'הזמנה והחזרה',

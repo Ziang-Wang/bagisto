@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Klantenservice',
                 'email' => 'E-mail',
                 'footer-content' => 'Voettekst inhoud',
-                'footer-text' => '© Auteursrecht 2010 - :current_year, Webkul Software (geregistreerd in India). Alle rechten voorbehouden.',
+                'footer-text' => 'Auteursrecht © :current_year URmotorparts. Alle rechten voorbehouden.',
                 'locale' => 'Taal',
                 'newsletter-text' => 'Maak je klaar voor onze leuke nieuwsbrief!',
                 'order-return' => 'Bestelling en Retourneren',

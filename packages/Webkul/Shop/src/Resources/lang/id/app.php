@@ -609,7 +609,7 @@ return [
                 'customer-service' => 'Layanan Pelanggan',
                 'email' => 'Email',
                 'footer-content' => 'Konten Footer',
-                'footer-text' => '© Hak Cipta 2010 - :current_year, Webkul Software (Terdaftar di India). Seluruh hak cipta dilindungi undang-undang.',
+                'footer-text' => 'Hak Cipta © :current_year URmotorparts. Seluruh hak cipta dilindungi undang-undang.',
                 'locale' => 'Bahasa',
                 'newsletter-text' => 'Bersiaplah untuk Newsletter Seru Kami!',
                 'order-return' => 'Pesanan dan Pengembalian',
