@@ -14,10 +14,13 @@ class Product extends BaseProduct implements Sitemapable
      */
     public function toSitemapTag(): Url|string|array
     {
+        // Variants of a configurable product are reached through their parent's
+        // page; listing them would hand search engines near-duplicate pages.
         if (
             ! $this->url_key
             || ! $this->status
             || ! $this->visible_individually
+            || $this->parent_id
         ) {
             return [];
         }
