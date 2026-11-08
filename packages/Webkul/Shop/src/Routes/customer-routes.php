@@ -65,6 +65,14 @@ Route::prefix('customer')->group(function () {
     });
 
     /**
+     * Cookie consent preferences. Linked from the cookie banner, so guests must
+     * reach it too (it used to sit behind the login like the rest of /account).
+     */
+    Route::get('account/your-cookie-consent-preferences', [GDPRController::class, 'cookieConsent'])
+        ->middleware(NoCacheMiddleware::class)
+        ->name('shop.customers.gdpr.cookie-consent');
+
+    /**
      * Customer authenticated routes. All the below routes only be accessible
      * if customer is authenticated.
      */
@@ -122,12 +130,6 @@ Route::prefix('customer')->group(function () {
 
                 Route::post('revoke/{id}', 'revoke')->name('shop.customers.account.gdpr.revoke');
             });
-
-            /**
-             * Cookie consent.
-             */
-            Route::get('your-cookie-consent-preferences', [GDPRController::class, 'cookieConsent'])
-                ->name('shop.customers.gdpr.cookie-consent');
 
             /**
              * Addresses.

@@ -119,7 +119,9 @@
                             'strictly_necessary',
                             'basic_interaction',
                             'experience_enhancement',
-                            'measurement',
+                            // Must match the checkbox id rendered above ("measurements"),
+                            // otherwise this choice is always saved as false.
+                            'measurements',
                             'targeting_advertising'
                         ],
                     };
@@ -152,6 +154,9 @@
 
                             this.setCookie(id, isChecked, 365 * 20);
                         });
+
+                        // Mark the choice as made so the banner doesn't ask again.
+                        this.setCookie('cookie-consent', 'custom', 365 * 20);
 
                         window.location.href = '{{ route('shop.home.index') }}';
                     },

@@ -116,6 +116,9 @@
                 },
 
                 rejectCookie() {
+                    // Remember the refusal, otherwise the banner comes back on every page.
+                    this.setCookie('cookie-consent', 0, 365 * 20);
+
                     this.hideCookieDialog();
                 },
 
@@ -136,7 +139,8 @@
                 },
 
                 cookieExists() {
-                    return document.cookie.includes(`cookie-consent=${1}`);
+                    // Any stored choice counts: 1 (accepted), 0 (rejected) or custom (preferences page).
+                    return /(^|;\s*)cookie-consent=/.test(document.cookie);
                 },
 
                 hideCookieDialog() {
