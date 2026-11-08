@@ -97,10 +97,18 @@ class ReviewController extends APIController
 
     /**
      * Translate the specified resource in storage.
+     *
+     * The ids are untyped on purpose: product pages print this URL with a literal
+     * ":reviewId" placeholder for their JS to fill in, crawlers fetch it verbatim,
+     * and an int signature turned that into a TypeError (500) instead of a 404.
      */
-    public function translate(int $productId, int $reviewId): JsonResponse
+    public function translate($productId, $reviewId): JsonResponse
     {
-        $review = $this->productReviewRepository->find($reviewId);
+        if (! ctype_digit((string) $productId) || ! ctype_digit((string) $reviewId)) {
+            abort(404);
+        }
+
+        $review = $this->productReviewRepository->find((int) $reviewId);
 
         if ($review?->status !== self::STATUS_APPROVED) {
             return new JsonResponse([
