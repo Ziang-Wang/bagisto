@@ -39,6 +39,7 @@ Set in the admin panel or by one-off scripts, not by code or the importer, so a 
 - EU 15% tax rates (created by the importer's `--with-tax`).
 - Outgoing mail: Gmail SMTP set in admin (`MAIL_MAILER=bagisto-dynamic-smtp`).
 - GDPR cookie banner, the sitemap record, and the channel's SEO title and description.
+- Product share buttons for Facebook, X and Pinterest (Configure → Catalog → Products → Social Share). The store's own Facebook, Instagram and YouTube links are in code, in the footer template.
 
 ### Environments
 

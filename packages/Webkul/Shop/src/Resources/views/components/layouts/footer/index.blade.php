@@ -46,6 +46,50 @@
             </p>
 
             <p>Shipped directly from our factory, quality inspected</p>
+
+            <!-- The store's social media profiles -->
+            <div class="flex gap-3">
+                <a
+                    href="https://www.facebook.com/urmotorparts"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="Facebook"
+                    title="Facebook"
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-navyBlue transition-all hover:bg-zinc-100"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                    </svg>
+                </a>
+
+                <a
+                    href="https://www.instagram.com/urmotorparts/"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="Instagram"
+                    title="Instagram"
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-navyBlue transition-all hover:bg-zinc-100"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <rect x="2" y="2" width="20" height="20" rx="5"/>
+                        <circle cx="12" cy="12" r="4"/>
+                        <circle cx="17.5" cy="6.5" r="1.25" fill="currentColor" stroke="none"/>
+                    </svg>
+                </a>
+
+                <a
+                    href="https://www.youtube.com/@URmotorparts"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="YouTube"
+                    title="YouTube"
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-navyBlue transition-all hover:bg-zinc-100"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M5.5 5h13a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-13a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4zM10 8.75v6.5L15.5 12z"/>
+                    </svg>
+                </a>
+            </div>
         </div>
 
         <!-- For Mobile view -->
