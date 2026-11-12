@@ -14,7 +14,8 @@
         <li class="transition-all hover:opacity-[0.8]">
             <a 
                 :href="shareUrl"
-                @click="openSharePopup"
+                {{-- .prevent: without it the link also took this tab to the share page, so the shopper left the product page (upstream bug). --}}
+                @click.prevent="openSharePopup"
                 aria-label="Facebook"
                 role="button"
                 tabindex="0"
